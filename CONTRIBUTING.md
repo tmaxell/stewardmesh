@@ -68,6 +68,8 @@ chore(build): add Maven quality plugins
 
 Commits must not mix unrelated formatting or generated-file churn with behavior changes.
 
+Commit each significant completed logical block after running its relevant verification. Prefer a small reviewable series of coherent commits over accumulating the entire feature in one commit. Do not manufacture micro-commits or separate changes that only compile, test or make sense together.
+
 ## Baseline verification
 
 Use Java 25 and the repository Maven Wrapper. Before opening a feature pull request, run:

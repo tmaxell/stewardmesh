@@ -32,6 +32,7 @@ For unstable library or protocol behavior, verify current primary documentation 
 
 - `main` contains completed project stages; `dev` integrates the current stage.
 - Create every atomic implementation or repository change as `feature/<short-kebab-name>` from current `dev`.
+- Within a feature branch, commit each significant completed logical block after its relevant verification. Prefer a small reviewable series over one end-of-branch commit, but do not create artificial micro-commits or split changes that only work together.
 - Merge a verified feature into `dev` through a pull request; prefer squash merge.
 - Promote a completed stage from `dev` to `main` only through a GitHub pull request with all required checks passing.
 - Do not commit directly to protected `main` or `dev`, force-push them, or mix unrelated changes in one feature branch.
