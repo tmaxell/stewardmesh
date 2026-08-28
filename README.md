@@ -4,7 +4,7 @@
 
 StewardMesh is a greenfield Java/Spring platform for governed supplier onboarding and master-data stewardship. It combines an explainable Partner & Location MDM core, headless REST/MCP capabilities, a reference agent, and reliable integration with an enterprise reference-data distribution contour.
 
-The repository is in the architecture and MVP-definition stage. For contribution and branch rules see [CONTRIBUTING.md](CONTRIBUTING.md).
+The repository contains the executable foundation for the first supplier-intake vertical slice. For contribution and branch rules see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Repository map
 
@@ -36,9 +36,20 @@ The MVP masters supplier parties and supplier sites and assigns them to procurem
 
 ## Next milestone
 
-Create the Maven reactor and deliver the first vertical slice:
+Deliver the first intake vertical slice on the Maven foundation:
 
 `XLSX upload -> S3 artifact -> ImportJob -> SourceRecord -> validation report`.
+
+## Build and run
+
+Java 25 is required. Maven is supplied by the repository wrapper.
+
+```bash
+./mvnw --batch-mode verify
+java -jar master-data-service/bootstrap-master-service/target/bootstrap-master-service-0.1.0-SNAPSHOT.jar
+```
+
+The foundation application deliberately starts without REST endpoints, database migrations or cloud adapters; those arrive in their own vertical feature branches.
 
 ## Local dependencies
 

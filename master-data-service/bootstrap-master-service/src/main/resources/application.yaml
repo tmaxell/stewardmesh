@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: stewardmesh-master-service
+  main:
+    banner-mode: "off"

@@ -68,6 +68,16 @@ chore(build): add Maven quality plugins
 
 Commits must not mix unrelated formatting or generated-file churn with behavior changes.
 
+## Baseline verification
+
+Use Java 25 and the repository Maven Wrapper. Before opening a feature pull request, run:
+
+```bash
+./mvnw --batch-mode verify
+docker compose -f deploy/local/compose.yaml config --quiet
+git diff --check
+```
+
 ## Repository documentation
 
 Multiple README files are intentional but bounded:
