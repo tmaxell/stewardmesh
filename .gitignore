@@ -1,0 +1,37 @@
+# Build outputs
+target/
+*.class
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+
+# Local runtime and secrets
+.env
+.env.*
+!.env.example
+*.local.yaml
+*.local.yml
+secrets/
+
+# Private working documentation (kept locally, never published)
+docs/
+
+# Logs and reports
+*.log
+logs/
+evals/results/
+
+# Testcontainers / local infrastructure
+.testcontainers.properties
+deploy/local/data/
+
+# Synthetic artifacts generated during tests
+test-fixtures/generated/

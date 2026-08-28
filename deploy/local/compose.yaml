@@ -1,0 +1,43 @@
+name: stewardmesh
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stewardmesh}
+      POSTGRES_USER: ${POSTGRES_USER:-stewardmesh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stewardmesh-local}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - stewardmesh-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  localstack:
+    image: localstack/localstack:4.14.0
+    environment:
+      SERVICES: s3,sqs
+      AWS_DEFAULT_REGION: ${AWS_REGION:-eu-central-1}
+      STEWARDMESH_INTAKE_BUCKET: ${STEWARDMESH_INTAKE_BUCKET:-stewardmesh-intake}
+      STEWARDMESH_MASTER_EVENTS_QUEUE: ${STEWARDMESH_MASTER_EVENTS_QUEUE:-stewardmesh-master-events}
+      STEWARDMESH_SOURCE_EVENTS_QUEUE: ${STEWARDMESH_SOURCE_EVENTS_QUEUE:-stewardmesh-source-events}
+    ports:
+      - "${LOCALSTACK_PORT:-4566}:4566"
+    volumes:
+      - ./localstack/init:/etc/localstack/init/ready.d:ro
+      - stewardmesh-localstack:/var/lib/localstack
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal s3api list-buckets >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  stewardmesh-postgres:
+  stewardmesh-localstack:
