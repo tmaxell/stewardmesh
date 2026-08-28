@@ -74,3 +74,4 @@ Use PostgreSQL and Flyway. Use Testcontainers for PostgreSQL, LocalStack, and Ke
 - LocalStack tests cover S3/SQS integration and inbox/outbox behavior.
 - Messaging contract tests cover duplicate delivery, relay loops, out-of-order versions, quarantine, replay, and adapter-independent canonical envelopes.
 - Architecture tests can enforce adapter/domain dependency direction once the module structure exists.
+- A JaCoCo aggregate-report module must declare every included reactor module as a direct dependency; reactor membership and transitive dependencies alone do not make a module part of `report-aggregate`.
