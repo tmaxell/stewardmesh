@@ -9,7 +9,6 @@ The repository contains the executable foundation for the first supplier-intake 
 ## Repository map
 
 ```text
-.agents/             Repository-specific Codex skill
 .github/workflows/   CI workflows
 contracts/           Versioned REST, MCP and event contracts
 deploy/local/        Local PostgreSQL, Keycloak, broker and observability setup

@@ -39,7 +39,7 @@ Every PR describes:
 - observable behavior and externally visible contracts;
 - tests executed and their results;
 - migrations, security, compatibility and operational impact;
-- documentation, ADR or repo-skill changes when applicable.
+- documentation or ADR changes when applicable.
 
 A PR is mergeable when:
 
@@ -50,7 +50,7 @@ A PR is mergeable when:
 - migrations are forward-only and tested against PostgreSQL;
 - APIs/events/MCP schemas remain versioned and documented;
 - logs and metrics do not expose sensitive values;
-- repository README files, contracts, skill references and implementation do not contradict one another.
+- repository README files, contracts and implementation do not contradict one another.
 
 Configure GitHub branch protection for `main` and `dev`: require pull requests, successful checks, resolved conversations, and prohibit force pushes and branch deletion. Require at least one approval when a second reviewer is available.
 
@@ -67,6 +67,8 @@ chore(build): add Maven quality plugins
 ```
 
 Commits must not mix unrelated formatting or generated-file churn with behavior changes.
+
+Commit each significant completed logical block after running its relevant verification. Prefer a small reviewable series of coherent commits over accumulating the entire feature in one commit. Do not manufacture micro-commits or separate changes that only compile, test or make sense together.
 
 ## Baseline verification
 
@@ -86,7 +88,7 @@ Multiple README files are intentional but bounded:
 - a top-level subsystem may have one README explaining its responsibility and how to use it before implementation exists;
 - externally visible machine contracts belong in `contracts`.
 
-The local `docs/` directory contains private planning and research notes and is intentionally ignored. Never rely on it in CI, Maven builds, tests or links committed to the repository. Stable reusable engineering constraints belong in the repo-skill references; user-facing setup belongs in the nearest top-level README; machine-readable interfaces belong in `contracts`. Summarize consequential decisions and trade-offs in the PR description and commit history.
+The local `docs/` and `.agents/` directories contain private planning and agent guidance and are intentionally ignored. Never rely on them in CI, Maven builds, tests or links committed to the repository. Stable reusable engineering constraints belong in versioned tests, contracts, `CONTRIBUTING.md`, or the nearest top-level README; machine-readable interfaces belong in `contracts`. Summarize consequential decisions and trade-offs in the PR description and commit history.
 
 Do not add README files to every Java package or Maven module. Prefer package documentation, tests and clear code when there is no separate operator/developer workflow to explain.
 
