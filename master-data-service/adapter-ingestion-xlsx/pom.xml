@@ -19,5 +19,36 @@
             <groupId>io.stewardmesh</groupId>
             <artifactId>master-application</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <testResources>
+            <testResource>
+                <directory>${project.basedir}/src/test/resources</directory>
+            </testResource>
+            <testResource>
+                <directory>${project.basedir}/../../contracts/intake</directory>
+                <targetPath>contracts/intake</targetPath>
+            </testResource>
+            <testResource>
+                <directory>${project.basedir}/../../test-fixtures/intake</directory>
+                <targetPath>fixtures/intake</targetPath>
+            </testResource>
+        </testResources>
+    </build>
 </project>
