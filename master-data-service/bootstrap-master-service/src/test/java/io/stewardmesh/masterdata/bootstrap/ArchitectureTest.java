@@ -20,7 +20,9 @@ class ArchitectureTest {
         "com.fasterxml.jackson..",
         "software.amazon.awssdk..",
         "io.modelcontextprotocol..",
-        "org.springframework.ai.."
+        "org.springframework.ai..",
+        "org.apache.poi..",
+        "org.mapstruct.."
     };
 
     private final JavaClasses productionClasses = new ClassFileImporter()
