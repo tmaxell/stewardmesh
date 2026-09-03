@@ -3,10 +3,13 @@ package io.stewardmesh.masterdata.ingestion.xlsx;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import io.stewardmesh.masterdata.domain.intake.ImportPolicy;
+import io.stewardmesh.masterdata.domain.intake.ValidationCode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,6 +24,8 @@ class SupplierWorkbookFixtureTest {
 
     private static final Pattern CONTRACT_COLUMN_PATTERN = Pattern.compile(
             "\\\"position\\\"\\s*:\\s*\\d+\\s*,\\s*\\\"name\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
+    private static final Pattern VALIDATION_CODE_PATTERN =
+            Pattern.compile("\\\"code\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
 
     @Test
     void validFixtureMatchesContractAndPreservesSupplierSiteDistinction() throws IOException {
@@ -62,6 +67,34 @@ class SupplierWorkbookFixtureTest {
         }
     }
 
+    @Test
+    void domainSafetyPolicyMatchesThePublishedWorkbookContract() throws IOException {
+        String contract = contractText();
+        var policy = ImportPolicy.supplierWorkbookV1();
+
+        assertEquals(policy.maxUploadBytes(), longProperty(contract, "maxUploadBytes"));
+        assertEquals(policy.maxSheets(), longProperty(contract, "maxSheets"));
+        assertEquals(policy.maxDataRows(), longProperty(contract, "maxDataRows"));
+        assertEquals(policy.maxColumns(), longProperty(contract, "maxColumns"));
+        assertEquals(policy.maxCellCharacters(), longProperty(contract, "maxCellCharacters"));
+        assertEquals(policy.maxSharedStrings(), longProperty(contract, "maxSharedStrings"));
+        assertEquals(policy.maxZipEntries(), longProperty(contract, "maxZipEntries"));
+        assertEquals(policy.minZipInflateRatio(), doubleProperty(contract, "minZipInflateRatio"));
+    }
+
+    @Test
+    void domainValidationTaxonomyMatchesThePublishedWorkbookContract() throws IOException {
+        Matcher matcher = VALIDATION_CODE_PATTERN.matcher(contractText());
+        List<String> contractCodes = new ArrayList<>();
+        while (matcher.find()) {
+            contractCodes.add(matcher.group(1));
+        }
+        List<String> domainCodes =
+                Arrays.stream(ValidationCode.values()).map(Enum::name).toList();
+
+        assertEquals(domainCodes, contractCodes);
+    }
+
     private static Workbook openFixture(String name) throws IOException {
         try (InputStream input = SupplierWorkbookFixtureTest.class.getResourceAsStream("/fixtures/intake/" + name)) {
             assertNotNull(input, "missing fixture " + name);
@@ -70,18 +103,40 @@ class SupplierWorkbookFixtureTest {
     }
 
     private static List<String> contractHeaders() throws IOException {
+        String contract = contractText();
+        Matcher matcher = CONTRACT_COLUMN_PATTERN.matcher(contract);
+        List<String> headers = new ArrayList<>();
+        while (matcher.find()) {
+            headers.add(matcher.group(1));
+        }
+        assertEquals(14, headers.size());
+        return List.copyOf(headers);
+    }
+
+    private static String contractText() throws IOException {
         try (InputStream input = SupplierWorkbookFixtureTest.class
                 .getResourceAsStream("/contracts/intake/supplier-workbook-v1.json")) {
             assertNotNull(input, "missing supplier workbook contract");
-            String contract = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-            Matcher matcher = CONTRACT_COLUMN_PATTERN.matcher(contract);
-            List<String> headers = new ArrayList<>();
-            while (matcher.find()) {
-                headers.add(matcher.group(1));
-            }
-            assertEquals(14, headers.size());
-            return List.copyOf(headers);
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
+    }
+
+    private static long longProperty(String contract, String property) {
+        return Long.parseLong(propertyValue(contract, property, "[0-9]+"));
+    }
+
+    private static double doubleProperty(String contract, String property) {
+        return Double.parseDouble(propertyValue(contract, property, "[0-9]+(?:\\.[0-9]+)?"));
+    }
+
+    private static String propertyValue(String contract, String property, String numberPattern) {
+        Pattern pattern = Pattern.compile(
+                "\\\"" + Pattern.quote(property) + "\\\"\\s*:\\s*(" + numberPattern + ")");
+        Matcher matcher = pattern.matcher(contract);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("missing numeric contract property " + property);
+        }
+        return matcher.group(1);
     }
 
     private static List<String> headerValues(Row row) {
