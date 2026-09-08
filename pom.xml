@@ -38,6 +38,7 @@
         <project.build.outputTimestamp>2026-08-28T00:00:00Z</project.build.outputTimestamp>
 
         <archunit.version>1.4.1</archunit.version>
+        <aws.sdk.version>2.54.13</aws.sdk.version>
         <jacoco.version>0.8.15</jacoco.version>
         <maven.compiler.version>3.15.0</maven.compiler.version>
         <maven.enforcer.version>3.6.3</maven.enforcer.version>
@@ -50,6 +51,13 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>io.stewardmesh</groupId>
                 <artifactId>master-domain</artifactId>
