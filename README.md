@@ -49,7 +49,7 @@ docker compose --env-file .env -f deploy/local/compose.yaml up -d --wait
 java -jar master-data-service/bootstrap-master-service/target/bootstrap-master-service-0.1.0-SNAPSHOT.jar
 ```
 
-At startup, the service connects to PostgreSQL, applies the Flyway intake schema, validates its JPA mappings and configures immutable intake storage against the local S3-compatible endpoint. REST endpoints and workbook parsing arrive in their own vertical feature branches.
+At startup, the service connects to PostgreSQL, applies the Flyway intake schema, validates its JPA mappings and configures immutable intake storage plus bounded supplier-workbook parsing. REST endpoints and import orchestration arrive in their own vertical feature branches.
 
 ## Local dependencies
 

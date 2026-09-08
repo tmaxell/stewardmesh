@@ -1,8 +1,10 @@
 package io.stewardmesh.masterdata.bootstrap;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import io.stewardmesh.masterdata.application.port.out.LoadIntakeArtifact;
+import io.stewardmesh.masterdata.application.port.out.ParseSupplierWorkbook;
 import io.stewardmesh.masterdata.application.port.out.StoreIntakeArtifact;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +28,9 @@ class StewardMeshApplicationIT {
     @Autowired
     private LoadIntakeArtifact loadIntakeArtifact;
 
+    @Autowired
+    private ParseSupplierWorkbook parseSupplierWorkbook;
+
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
@@ -36,5 +41,6 @@ class StewardMeshApplicationIT {
     @Test
     void loadsCompositionRootWithMigratedPersistenceAndS3Storage() {
         assertSame(storeIntakeArtifact, loadIntakeArtifact);
+        assertNotNull(parseSupplierWorkbook);
     }
 }

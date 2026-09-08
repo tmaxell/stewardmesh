@@ -39,6 +39,7 @@
 
         <archunit.version>1.4.1</archunit.version>
         <aws.sdk.version>2.54.13</aws.sdk.version>
+        <commons.io.version>2.21.0</commons.io.version>
         <jacoco.version>0.8.15</jacoco.version>
         <maven.compiler.version>3.15.0</maven.compiler.version>
         <maven.enforcer.version>3.6.3</maven.enforcer.version>
@@ -87,6 +88,11 @@
                 <groupId>com.tngtech.archunit</groupId>
                 <artifactId>archunit-junit5</artifactId>
                 <version>${archunit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons.io.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.poi</groupId>
