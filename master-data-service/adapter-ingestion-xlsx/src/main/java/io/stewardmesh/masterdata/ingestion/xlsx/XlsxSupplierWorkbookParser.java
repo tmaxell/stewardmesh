@@ -69,8 +69,6 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
             return fatal(exception.code());
         } catch (IOException | OpenXML4JException | SAXException | ParserConfigurationException exception) {
             return fatal(ValidationCode.WORKBOOK_FORMAT_INVALID);
-        } catch (RuntimeException exception) {
-            return fatal(ValidationCode.WORKBOOK_FORMAT_INVALID);
         } finally {
             deleteStagedFile(staged);
         }
@@ -206,6 +204,7 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
         private final List<CellIssue> cellIssues = new ArrayList<>();
         private int currentRow;
         private int rowsRead;
+        private boolean headersValid;
 
         private RowCollector(SupplierWorkbookParseRequest request) {
             this.request = request;
@@ -230,6 +229,9 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
             rowsRead++;
             if (rowsRead > policy.maxDataRows()) {
                 throw new WorkbookIssueException(ValidationCode.WORKBOOK_LIMIT_EXCEEDED);
+            }
+            if (!headersValid) {
+                return;
             }
             parseDataRow();
         }
@@ -273,6 +275,7 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
                     .forEach(missing -> issues.add(issue(ValidationCode.HEADER_MISSING, 1, missing)));
             cellIssues.forEach(cellIssue -> issues.add(
                     issue(cellIssue.code(), currentRow, headers.get(cellIssue.column()))));
+            headersValid = !hasError(issues);
         }
 
         private void parseDataRow() {
@@ -461,12 +464,14 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
 
         @Override
         public void startElement(
-                String uri, String localName, String qualifiedName, Attributes attributes)
+            String uri, String localName, String qualifiedName, Attributes attributes)
                 throws SAXException {
-            String element = localName.isEmpty() ? qualifiedName : localName;
-            if (element.endsWith("c")) {
+            String element = localName.isEmpty()
+                    ? qualifiedName.substring(qualifiedName.lastIndexOf(':') + 1)
+                    : localName;
+            if ("c".equals(element)) {
                 currentCellReference = attributes.getValue("r");
-            } else if (element.endsWith("f") && currentCellReference != null) {
+            } else if ("f".equals(element) && currentCellReference != null) {
                 collector.formula(currentCellReference);
             }
             super.startElement(uri, localName, qualifiedName, attributes);
