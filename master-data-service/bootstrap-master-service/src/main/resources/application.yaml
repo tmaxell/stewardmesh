@@ -13,3 +13,10 @@ spring:
     open-in-view: false
   main:
     banner-mode: "off"
+
+stewardmesh:
+  intake-storage:
+    bucket: ${STEWARDMESH_INTAKE_BUCKET:stewardmesh-intake}
+    endpoint: ${STEWARDMESH_S3_ENDPOINT:http://localhost:${LOCALSTACK_PORT:4566}}
+    force-path-style: ${STEWARDMESH_S3_FORCE_PATH_STYLE:true}
+    region: ${AWS_REGION:eu-central-1}
