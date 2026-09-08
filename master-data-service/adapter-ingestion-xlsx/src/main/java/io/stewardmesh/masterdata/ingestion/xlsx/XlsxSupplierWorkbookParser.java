@@ -48,6 +48,7 @@ import org.xml.sax.helpers.XMLFilterImpl;
 public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
 
     private static final int COPY_BUFFER_BYTES = 64 * 1024;
+    private static final int MAX_EXPANDED_ENTRY_MULTIPLIER = 2;
 
     private final ImportPolicy policy;
 
@@ -418,13 +419,13 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
     }
 
     private long maxExpandedEntryBytes() {
-        return Math.multiplyExact((long) policy.maxSharedStrings(), policy.maxCellCharacters());
+        return Math.multiplyExact(policy.maxUploadBytes(), MAX_EXPANDED_ENTRY_MULTIPLIER);
     }
 
     private static void configurePoiZipSecurity(ImportPolicy policy) {
         synchronized (ZipSecureFile.class) {
             long maxText = Math.multiplyExact(
-                    (long) policy.maxSharedStrings(), policy.maxCellCharacters());
+                    policy.maxUploadBytes(), MAX_EXPANDED_ENTRY_MULTIPLIER);
             ZipSecureFile.setMinInflateRatio(policy.minZipInflateRatio());
             ZipSecureFile.setMaxFileCount(policy.maxZipEntries());
             ZipSecureFile.setMaxEntrySize(maxText);
