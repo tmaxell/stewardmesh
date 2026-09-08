@@ -42,6 +42,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
@@ -116,7 +117,13 @@ class S3IntakeArtifactStorageIT {
                         .bucket(BUCKET)
                         .build())
                 .keyCount());
+        var stored = s3.headObject(HeadObjectRequest.builder()
+                .bucket(BUCKET)
+                .key(first.storageKey())
+                .build());
         assertEquals(WORKBOOK.length, first.sizeBytes());
+        assertEquals(first.sha256(), stored.metadata().get("sha256"));
+        assertEquals(Long.toString(first.sizeBytes()), stored.metadata().get("size-bytes"));
         assertEquals(CLOCK.instant(), first.createdAt());
     }
 
