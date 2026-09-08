@@ -8,7 +8,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 abstract class PostgreSqlIntegrationTestSupport {
 
-    private static final PostgreSQLContainer POSTGRES =
+    static final PostgreSQLContainer POSTGRES =
             new PostgreSQLContainer("postgres:17-alpine");
 
     static {

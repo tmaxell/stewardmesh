@@ -1,6 +1,6 @@
 CREATE TABLE intake_artifact (
     id UUID PRIMARY KEY,
-    sha256 CHAR(64) NOT NULL UNIQUE,
+    sha256 VARCHAR(64) NOT NULL UNIQUE,
     storage_key VARCHAR(1024) NOT NULL UNIQUE,
     content_type VARCHAR(255) NOT NULL,
     size_bytes BIGINT NOT NULL CHECK (size_bytes >= 0),
@@ -37,7 +37,7 @@ CREATE TABLE idempotency_record (
     source_system VARCHAR(128) NOT NULL,
     idempotency_key VARCHAR(128) NOT NULL,
     import_job_id UUID NOT NULL UNIQUE REFERENCES import_job (id),
-    artifact_sha256 CHAR(64) NOT NULL,
+    artifact_sha256 VARCHAR(64) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (source_system, idempotency_key),
     CONSTRAINT idempotency_artifact_sha256_format CHECK (artifact_sha256 ~ '^[0-9a-f]{64}$')

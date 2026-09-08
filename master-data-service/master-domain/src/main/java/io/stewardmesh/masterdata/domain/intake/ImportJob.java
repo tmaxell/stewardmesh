@@ -46,6 +46,17 @@ public final class ImportJob {
                 id, artifactId, sourceSystem, createdAt, ImportStatus.RECEIVED, ImportCounters.EMPTY, null);
     }
 
+    public static ImportJob restore(
+            ImportJobId id,
+            IntakeArtifactId artifactId,
+            SourceSystemRef sourceSystem,
+            Instant createdAt,
+            ImportStatus status,
+            ImportCounters counters,
+            String failureCode) {
+        return new ImportJob(id, artifactId, sourceSystem, createdAt, status, counters, failureCode);
+    }
+
     public ImportJob startParsing() {
         return transition(ImportStatus.RECEIVED, ImportStatus.PARSING, counters);
     }
