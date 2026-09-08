@@ -134,11 +134,18 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
             List<ValidationIssue> workbookIssues = new ArrayList<>();
             SheetSelection sheet = selectSupplierSheet(reader, workbookIssues);
             if (sheet == null || hasError(workbookIssues)) {
+                closeSelection(sheet);
                 return new SupplierWorkbookParseResult(0, List.of(), workbookIssues);
             }
 
             RowCollector collector = new RowCollector(request);
-            parseSheet(reader, sharedStrings, sheet.input(), collector);
+            try {
+                parseSheet(reader, sharedStrings, sheet.input(), collector);
+            } catch (HeaderIssueException exception) {
+                List<ValidationIssue> issues = new ArrayList<>(workbookIssues);
+                issues.addAll(collector.issues());
+                return new SupplierWorkbookParseResult(0, List.of(), issues);
+            }
             List<ValidationIssue> issues = new ArrayList<>(workbookIssues);
             issues.addAll(collector.issues());
             return new SupplierWorkbookParseResult(collector.rowsRead(), collector.records(), issues);
@@ -222,6 +229,9 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
         public void endRow(int rowNumber) {
             if (rowNumber == 0) {
                 validateHeaders();
+                if (!headersValid) {
+                    throw new HeaderIssueException();
+                }
                 return;
             }
             if (cells.values().stream().allMatch(String::isEmpty) && cellIssues.isEmpty()) {
@@ -492,6 +502,15 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
 
         private ValidationCode code() {
             return code;
+        }
+    }
+
+    private static final class HeaderIssueException extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        private HeaderIssueException() {
+            super("supplier workbook header is invalid");
         }
     }
 }

@@ -88,6 +88,7 @@ class XlsxSupplierWorkbookSafetyTest {
         assertEquals(
                 List.of(ValidationCode.HEADER_DUPLICATE, ValidationCode.HEADER_MISSING),
                 result.validationIssues().stream().map(issue -> issue.code()).toList());
+        assertEquals(0, result.rowsRead());
         assertEquals("site_purpose", result.validationIssues().getLast().field());
         assertTrue(result.sourceRecords().isEmpty());
     }
