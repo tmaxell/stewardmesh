@@ -18,6 +18,7 @@ class ArchitectureTest {
         "org.springframework..",
         "jakarta.persistence..",
         "com.fasterxml.jackson..",
+        "tools.jackson..",
         "software.amazon.awssdk..",
         "io.modelcontextprotocol..",
         "org.springframework.ai..",
