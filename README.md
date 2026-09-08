@@ -45,10 +45,11 @@ Java 25 is required. Maven is supplied by the repository wrapper.
 
 ```bash
 ./mvnw --batch-mode verify
+docker compose --env-file .env -f deploy/local/compose.yaml up -d --wait
 java -jar master-data-service/bootstrap-master-service/target/bootstrap-master-service-0.1.0-SNAPSHOT.jar
 ```
 
-The foundation application deliberately starts without REST endpoints, database migrations or cloud adapters; those arrive in their own vertical feature branches.
+At startup, the service connects to PostgreSQL, applies the Flyway intake schema and validates its JPA mappings. REST endpoints and cloud adapters arrive in their own vertical feature branches.
 
 ## Local dependencies
 
