@@ -10,6 +10,7 @@ import io.stewardmesh.masterdata.domain.intake.SourceRecordIdentity;
 import io.stewardmesh.masterdata.domain.intake.ValidationCode;
 import io.stewardmesh.masterdata.domain.intake.ValidationIssue;
 import io.stewardmesh.masterdata.domain.intake.ValidationSeverity;
+import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -51,9 +52,11 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
     private static final int MAX_EXPANDED_ENTRY_MULTIPLIER = 2;
 
     private final ImportPolicy policy;
+    private final SupplierSourceNormalizer sourceNormalizer;
 
     public XlsxSupplierWorkbookParser(ImportPolicy policy) {
         this.policy = Objects.requireNonNull(policy, "policy must not be null");
+        this.sourceNormalizer = new SupplierSourceNormalizer();
         configurePoiZipSecurity(policy);
     }
 
@@ -309,14 +312,15 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
             }
 
             long sourceVersion = Long.parseLong(original.get("source_version").trim());
-            Map<String, String> canonical = canonicalValues(original);
+            var normalized = sourceNormalizer.normalize(original);
             records.add(new SourceRecord(
                     new SourceRecordIdentity(
                             request.originSystem(), original.get("source_record_id").trim(), sourceVersion),
                     request.importJobId(),
                     request.ingestedAt(),
+                    normalized.rulesetId(),
                     original,
-                    canonical));
+                    normalized.values()));
         }
 
         private void validateValues(
@@ -391,17 +395,6 @@ public final class XlsxSupplierWorkbookParser implements ParseSupplierWorkbook {
         private int rowsRead() {
             return rowsRead;
         }
-    }
-
-    private static Map<String, String> canonicalValues(Map<String, String> original) {
-        Map<String, String> canonical = new LinkedHashMap<>();
-        original.forEach((field, value) -> {
-            String normalized = value.trim();
-            if (!normalized.isEmpty()) {
-                canonical.put(field, normalized);
-            }
-        });
-        return canonical;
     }
 
     private static boolean present(Map<String, String> values, String field) {

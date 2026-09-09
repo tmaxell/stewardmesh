@@ -11,6 +11,7 @@ import io.stewardmesh.masterdata.domain.intake.ImportJobId;
 import io.stewardmesh.masterdata.domain.intake.ImportPolicy;
 import io.stewardmesh.masterdata.domain.intake.SourceSystemRef;
 import io.stewardmesh.masterdata.domain.intake.ValidationIssue;
+import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -44,6 +45,8 @@ class XlsxSupplierWorkbookParserTest {
         assertEquals(1, site.identity().sourceVersion());
         assertEquals("АО «Синтетик Бета»", site.originalValues().get("legal_name"));
         assertEquals("990201001", site.canonicalValues().get("kpp"));
+        assertEquals("АО «СИНТЕТИК БЕТА»", site.canonicalValues().get("legal_name"));
+        assertEquals(SupplierSourceNormalizer.RULESET_ID, site.normalizationRulesetId());
         assertEquals(IMPORT_ID, site.importJobId());
         assertEquals(INGESTED_AT, site.ingestedAt());
     }
@@ -80,7 +83,7 @@ class XlsxSupplierWorkbookParserTest {
         assertEquals("  Synthetic Supplier  ", result.sourceRecords().getFirst()
                 .originalValues()
                 .get("legal_name"));
-        assertEquals("Synthetic Supplier", result.sourceRecords().getFirst()
+        assertEquals("SYNTHETIC SUPPLIER", result.sourceRecords().getFirst()
                 .canonicalValues()
                 .get("legal_name"));
     }
