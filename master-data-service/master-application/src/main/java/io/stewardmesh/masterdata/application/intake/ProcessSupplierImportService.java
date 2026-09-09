@@ -62,7 +62,14 @@ public final class ProcessSupplierImportService implements ProcessSupplierImport
 
         ImportJob parsing = received.startParsing();
         importJobRepository.save(parsing);
-        IntakeContent content = artifactStorage.load(parsing.artifactId());
+        IntakeContent content;
+        try {
+            content = artifactStorage.load(parsing.artifactId());
+        } catch (IntakeArtifactAccessException exception) {
+            ImportJob failed = parsing.fail("ARTIFACT_STORAGE_UNAVAILABLE");
+            importJobRepository.save(failed);
+            return result(failed);
+        }
         SupplierWorkbookParseResult parsed = workbookParser.parse(new SupplierWorkbookParseRequest(
                 parsing.id(), parsing.sourceSystem(), clock.instant(), content));
 
@@ -79,12 +86,18 @@ public final class ProcessSupplierImportService implements ProcessSupplierImport
                 ? validating.fail("WORKBOOK_VALIDATION_FAILED")
                 : validating.finishValidation(accepted, rejected, warnings, errors);
 
-        return transaction.execute(() -> {
-            sourceRecordWriter.writeBatch(
-                    completed.id(), parsed.sourceRecords(), parsed.validationIssues());
-            importJobRepository.save(completed);
-            return result(completed);
-        });
+        try {
+            return transaction.execute(() -> {
+                sourceRecordWriter.writeBatch(
+                        completed.id(), parsed.sourceRecords(), parsed.validationIssues());
+                importJobRepository.save(completed);
+                return result(completed);
+            });
+        } catch (SourceRecordWriteException exception) {
+            ImportJob failed = validating.fail("SOURCE_RECORD_PERSISTENCE_FAILED");
+            importJobRepository.save(failed);
+            return result(failed);
+        }
     }
 
     private ImportJob find(ImportJobId importJobId) {

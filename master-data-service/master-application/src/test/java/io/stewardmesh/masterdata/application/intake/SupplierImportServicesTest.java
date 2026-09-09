@@ -133,6 +133,53 @@ class SupplierImportServicesTest {
     }
 
     @Test
+    void exposesArtifactReadFailureAsAStableTerminalState() {
+        var state = new State();
+        ImportJob job = receivedJob();
+        state.jobs.put(job.id(), job);
+        var service = new ProcessSupplierImportService(
+                state,
+                ignored -> {
+                    throw new IntakeArtifactAccessException("synthetic storage outage");
+                },
+                ignored -> new SupplierWorkbookParseResult(0, List.of(), List.of()),
+                (ignored, records, issues) -> {},
+                new DirectTransaction(),
+                CLOCK);
+
+        ProcessSupplierImportResult result = service.execute(job.id());
+
+        assertEquals(ImportStatus.FAILED, result.status());
+        assertEquals(
+                "ARTIFACT_STORAGE_UNAVAILABLE",
+                state.jobs.get(job.id()).failureCode().orElseThrow());
+    }
+
+    @Test
+    void exposesSourceRecordWriteFailureAfterRollingBackTheBatch() {
+        var state = new State();
+        ImportJob job = receivedJob();
+        state.jobs.put(job.id(), job);
+        var service = new ProcessSupplierImportService(
+                state,
+                ignored -> content(),
+                ignored -> new SupplierWorkbookParseResult(1, List.of(), List.of()),
+                (ignored, records, issues) -> {
+                    throw new SourceRecordWriteException(
+                            "synthetic persistence failure", new IllegalStateException("test"));
+                },
+                new DirectTransaction(),
+                CLOCK);
+
+        ProcessSupplierImportResult result = service.execute(job.id());
+
+        assertEquals(ImportStatus.FAILED, result.status());
+        assertEquals(
+                "SOURCE_RECORD_PERSISTENCE_FAILED",
+                state.jobs.get(job.id()).failureCode().orElseThrow());
+    }
+
+    @Test
     void statusAndReportReadersRejectUnknownImports() {
         var state = new State();
         ImportJobId missing = new ImportJobId(UUID.randomUUID());

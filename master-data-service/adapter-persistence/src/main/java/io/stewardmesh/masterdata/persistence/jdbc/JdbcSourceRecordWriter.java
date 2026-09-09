@@ -1,5 +1,6 @@
 package io.stewardmesh.masterdata.persistence.jdbc;
 
+import io.stewardmesh.masterdata.application.intake.SourceRecordWriteException;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
 import io.stewardmesh.masterdata.domain.intake.ImportJobId;
 import io.stewardmesh.masterdata.domain.intake.SourceRecord;
@@ -10,6 +11,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.List;
 import java.util.Map;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,8 +51,13 @@ public class JdbcSourceRecordWriter implements SourceRecordWriter {
         if (records.stream().anyMatch(record -> !record.importJobId().equals(importJobId))) {
             throw new IllegalArgumentException("every source record must belong to the requested import");
         }
-        jdbcTemplate.batchUpdate(INSERT_SOURCE_RECORD, new SourceRecordBatch(records));
-        jdbcTemplate.batchUpdate(INSERT_VALIDATION_ISSUE, new ValidationIssueBatch(importJobId, issues));
+        try {
+            jdbcTemplate.batchUpdate(INSERT_SOURCE_RECORD, new SourceRecordBatch(records));
+            jdbcTemplate.batchUpdate(
+                    INSERT_VALIDATION_ISSUE, new ValidationIssueBatch(importJobId, issues));
+        } catch (DataAccessException exception) {
+            throw new SourceRecordWriteException("source record batch could not be persisted", exception);
+        }
     }
 
     private String json(Map<String, String> values) {
