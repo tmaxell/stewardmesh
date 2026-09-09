@@ -49,7 +49,11 @@ docker compose --env-file .env -f deploy/local/compose.yaml up -d --wait
 java -jar master-data-service/bootstrap-master-service/target/bootstrap-master-service-0.1.0-SNAPSHOT.jar
 ```
 
-At startup, the service connects to PostgreSQL, applies the Flyway intake schema, validates its JPA mappings and configures immutable intake storage plus bounded supplier-workbook parsing. REST endpoints and import orchestration arrive in their own vertical feature branches.
+At startup, the service connects to PostgreSQL, applies the Flyway intake schema, validates its JPA mappings and configures immutable intake storage plus bounded supplier-workbook parsing. The supplier intake API is published under `/api/v1/supplier-imports`; its OpenAPI document is available at `/v3/api-docs`.
+
+The API is an OAuth2 resource server. Configure `STEWARDMESH_JWK_SET_URI` for the JWT issuer. Upload requires `supplier-import.write`; status and report reads require `supplier-import.read`. The default local URI is only a development boundary and does not embed credentials or keys.
+
+Actuator health, metrics and Prometheus output are exposed under `/actuator`. Console logs use structured JSON and never include workbook rows or supplier identifiers.
 
 ## Local dependencies
 

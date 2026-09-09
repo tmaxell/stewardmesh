@@ -1,6 +1,7 @@
 package io.stewardmesh.masterdata.persistence.jpa;
 
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
+import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
@@ -13,12 +14,19 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 @Configuration(proxyBeanMethods = false)
 @EntityScan(basePackageClasses = IntakeArtifactEntity.class)
 @EnableJpaRepositories(basePackageClasses = SpringDataIntakeArtifactRepository.class)
 public class IntakePersistenceConfiguration {
+
+    @Bean
+    ApplicationTransaction applicationTransaction(PlatformTransactionManager transactionManager) {
+        return new SpringApplicationTransaction(new TransactionTemplate(transactionManager));
+    }
 
     @Bean
     @ConditionalOnMissingBean

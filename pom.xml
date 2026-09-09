@@ -46,6 +46,7 @@
         <maven.failsafe.version>3.5.5</maven.failsafe.version>
         <maven.surefire.version>3.5.5</maven.surefire.version>
         <poi.version>5.5.1</poi.version>
+        <springdoc.version>3.0.3</springdoc.version>
 
         <jacocoArgLine/>
     </properties>
@@ -98,6 +99,11 @@
                 <groupId>org.apache.poi</groupId>
                 <artifactId>poi-ooxml</artifactId>
                 <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+                <version>${springdoc.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

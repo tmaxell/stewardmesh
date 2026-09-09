@@ -13,6 +13,34 @@ spring:
     open-in-view: false
   main:
     banner-mode: "off"
+  servlet:
+    multipart:
+      max-file-size: 5MiB
+      max-request-size: 6MiB
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${STEWARDMESH_JWK_SET_URI:http://localhost:8081/oauth2/jwks}
+
+springdoc:
+  api-docs:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: logstash
 
 stewardmesh:
   intake-storage:
