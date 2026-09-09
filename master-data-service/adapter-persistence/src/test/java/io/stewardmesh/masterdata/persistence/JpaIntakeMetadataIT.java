@@ -25,6 +25,7 @@ import io.stewardmesh.masterdata.domain.intake.SourceRecord;
 import io.stewardmesh.masterdata.domain.intake.SourceRecordIdentity;
 import io.stewardmesh.masterdata.domain.intake.ValidationCode;
 import io.stewardmesh.masterdata.domain.intake.ValidationIssue;
+import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
 import io.stewardmesh.masterdata.persistence.jpa.IntakePersistenceConfiguration;
 import java.time.Instant;
 import java.util.UUID;
@@ -128,6 +129,10 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
         assertEquals(2, report.totalIssues());
         assertEquals("9902000005", jdbcTemplate.queryForObject(
                 "SELECT canonical_inn FROM source_record WHERE import_job_id = ?",
+                String.class,
+                job.id().value()));
+        assertEquals(SupplierSourceNormalizer.RULESET_ID.value(), jdbcTemplate.queryForObject(
+                "SELECT normalization_ruleset FROM source_record WHERE import_job_id = ?",
                 String.class,
                 job.id().value()));
     }
