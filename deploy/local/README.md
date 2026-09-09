@@ -6,7 +6,7 @@ From the repository root:
 
 ```bash
 cp .env.example .env
-docker compose --env-file .env -f deploy/local/compose.yaml up -d
+docker compose --env-file .env -f deploy/local/compose.yaml up -d --wait
 docker compose --env-file .env -f deploy/local/compose.yaml ps
 ```
 

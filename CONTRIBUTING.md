@@ -52,6 +52,8 @@ A PR is mergeable when:
 - logs and metrics do not expose sensitive values;
 - repository README files, contracts and implementation do not contradict one another.
 
+Use the aggregate JaCoCo report as review evidence for production changes. The Phase 1 baseline target is at least 80% coverage of changed production lines; material branches of the domain state machine require 100% path coverage. A justified exception belongs in the PR description rather than in disabled tests or coverage exclusions.
+
 Configure GitHub branch protection for `main` and `dev`: require pull requests, successful checks, resolved conversations, and prohibit force pushes and branch deletion. Require at least one approval when a second reviewer is available.
 
 ## Commit conventions
