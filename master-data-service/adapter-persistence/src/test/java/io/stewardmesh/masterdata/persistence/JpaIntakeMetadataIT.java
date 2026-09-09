@@ -1,9 +1,11 @@
 package io.stewardmesh.masterdata.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.stewardmesh.masterdata.application.intake.IdempotencyConflictException;
+import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository.IdempotencyRecord;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
@@ -57,6 +59,9 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
 
     @Autowired
     private ValidationIssueReader validationIssueReader;
+
+    @Autowired
+    private ApplicationTransaction applicationTransaction;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -139,6 +144,22 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
                 "SELECT COUNT(*) FROM source_record WHERE import_job_id = ?",
                 Integer.class,
                 job.id().value()));
+    }
+
+    @Test
+    void rollsBackAllRepositoriesInsideTheApplicationTransaction() {
+        IntakeArtifact artifact = artifact();
+        ImportJob job = ImportJob.received(
+                importJobId(), artifact.id(), new SourceSystemRef("SYNTHETIC_TRANSACTION"), CREATED_AT);
+
+        assertThrows(IllegalStateException.class, () -> applicationTransaction.execute(() -> {
+            artifactRepository.save(artifact);
+            importJobRepository.save(job);
+            throw new IllegalStateException("synthetic rollback trigger");
+        }));
+
+        assertFalse(artifactRepository.findById(artifact.id()).isPresent());
+        assertFalse(importJobRepository.findById(job.id()).isPresent());
     }
 
     private static IntakeArtifact artifact() {
