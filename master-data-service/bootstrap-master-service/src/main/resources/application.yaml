@@ -15,8 +15,8 @@ spring:
     banner-mode: "off"
   servlet:
     multipart:
-      max-file-size: 5MiB
-      max-request-size: 6MiB
+      max-file-size: 5MB
+      max-request-size: 6MB
   security:
     oauth2:
       resourceserver:
