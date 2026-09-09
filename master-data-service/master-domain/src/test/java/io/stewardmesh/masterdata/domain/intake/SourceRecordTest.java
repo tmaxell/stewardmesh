@@ -21,6 +21,7 @@ class SourceRecordTest {
                 new SourceRecordIdentity(new SourceSystemRef("SYNTHETIC_ERP"), "supplier-42", 2),
                 new ImportJobId(UUID.fromString("018f3f70-79b2-7d6a-bf40-3d52dc2bb10b")),
                 Instant.parse("2026-08-28T10:15:30Z"),
+                SupplierSourceNormalizer.RULESET_ID,
                 originals,
                 canonical);
         originals.put("legal_name", "changed");
@@ -44,6 +45,7 @@ class SourceRecordTest {
                         new ImportJobId(
                                 UUID.fromString("018f3f70-79b2-7d6a-bf40-3d52dc2bb10b")),
                         Instant.parse("2026-08-28T10:15:30Z"),
+                        SupplierSourceNormalizer.RULESET_ID,
                         Map.of("legal_name", "Synthetic Supplier"),
                         Map.of("inn", "9902000005")));
     }

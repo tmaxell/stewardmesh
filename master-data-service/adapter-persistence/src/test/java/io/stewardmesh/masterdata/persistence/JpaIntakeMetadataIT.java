@@ -197,6 +197,7 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
                 new SourceRecordIdentity(job.sourceSystem(), sourceRecordId, sourceVersion),
                 job.id(),
                 CREATED_AT.plusSeconds(30),
+                SupplierSourceNormalizer.RULESET_ID,
                 Map.of("legal_name", "  Synthetic Supplier  ", "inn", "9902000005"),
                 Map.of("legal_name", "SYNTHETIC SUPPLIER", "inn", "9902000005"));
     }
