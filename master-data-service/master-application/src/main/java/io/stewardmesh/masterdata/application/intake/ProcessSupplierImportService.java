@@ -3,6 +3,8 @@ package io.stewardmesh.masterdata.application.intake;
 import io.stewardmesh.masterdata.application.port.in.ProcessSupplierImport;
 import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
+import io.stewardmesh.masterdata.application.port.out.IntakeTelemetry;
+import io.stewardmesh.masterdata.application.port.out.IntakeTelemetry.Stage;
 import io.stewardmesh.masterdata.application.port.out.LoadIntakeArtifact;
 import io.stewardmesh.masterdata.application.port.out.ParseSupplierWorkbook;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
@@ -33,6 +35,7 @@ public final class ProcessSupplierImportService implements ProcessSupplierImport
     private final ParseSupplierWorkbook workbookParser;
     private final SourceRecordWriter sourceRecordWriter;
     private final ApplicationTransaction transaction;
+    private final IntakeTelemetry telemetry;
     private final Clock clock;
 
     public ProcessSupplierImportService(
@@ -41,6 +44,7 @@ public final class ProcessSupplierImportService implements ProcessSupplierImport
             ParseSupplierWorkbook workbookParser,
             SourceRecordWriter sourceRecordWriter,
             ApplicationTransaction transaction,
+            IntakeTelemetry telemetry,
             Clock clock) {
         this.importJobRepository =
                 Objects.requireNonNull(importJobRepository, "importJobRepository must not be null");
@@ -49,6 +53,7 @@ public final class ProcessSupplierImportService implements ProcessSupplierImport
         this.sourceRecordWriter =
                 Objects.requireNonNull(sourceRecordWriter, "sourceRecordWriter must not be null");
         this.transaction = Objects.requireNonNull(transaction, "transaction must not be null");
+        this.telemetry = Objects.requireNonNull(telemetry, "telemetry must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
@@ -62,9 +67,20 @@ public final class ProcessSupplierImportService implements ProcessSupplierImport
 
         ImportJob parsing = received.startParsing();
         importJobRepository.save(parsing);
-        IntakeContent content = artifactStorage.load(parsing.artifactId());
-        SupplierWorkbookParseResult parsed = workbookParser.parse(new SupplierWorkbookParseRequest(
-                parsing.id(), parsing.sourceSystem(), clock.instant(), content));
+        IntakeContent content;
+        try {
+            content = telemetry.measure(
+                    Stage.ARTIFACT_LOAD, () -> artifactStorage.load(parsing.artifactId()));
+        } catch (IntakeArtifactAccessException exception) {
+            ImportJob failed = parsing.fail("ARTIFACT_STORAGE_UNAVAILABLE");
+            importJobRepository.save(failed);
+            return result(failed);
+        }
+        SupplierWorkbookParseResult parsed = telemetry.measure(
+                Stage.WORKBOOK_PARSE,
+                () -> workbookParser.parse(new SupplierWorkbookParseRequest(
+                        parsing.id(), parsing.sourceSystem(), clock.instant(), content)));
+        telemetry.recordValidationIssues(parsed.validationIssues());
 
         ImportJob validating = parsing
                 .finishParsing(parsed.rowsRead())
@@ -79,12 +95,18 @@ public final class ProcessSupplierImportService implements ProcessSupplierImport
                 ? validating.fail("WORKBOOK_VALIDATION_FAILED")
                 : validating.finishValidation(accepted, rejected, warnings, errors);
 
-        return transaction.execute(() -> {
-            sourceRecordWriter.writeBatch(
-                    completed.id(), parsed.sourceRecords(), parsed.validationIssues());
-            importJobRepository.save(completed);
-            return result(completed);
-        });
+        try {
+            return telemetry.measure(Stage.PERSISTENCE_BATCH, () -> transaction.execute(() -> {
+                sourceRecordWriter.writeBatch(
+                        completed.id(), parsed.sourceRecords(), parsed.validationIssues());
+                importJobRepository.save(completed);
+                return result(completed);
+            }));
+        } catch (SourceRecordWriteException exception) {
+            ImportJob failed = validating.fail("SOURCE_RECORD_PERSISTENCE_FAILED");
+            importJobRepository.save(failed);
+            return result(failed);
+        }
     }
 
     private ImportJob find(ImportJobId importJobId) {

@@ -7,6 +7,8 @@ import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository.Idem
 import io.stewardmesh.masterdata.application.port.out.ImportIdentityGenerator;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
+import io.stewardmesh.masterdata.application.port.out.IntakeTelemetry;
+import io.stewardmesh.masterdata.application.port.out.IntakeTelemetry.Stage;
 import io.stewardmesh.masterdata.application.port.out.StoreIntakeArtifact;
 import io.stewardmesh.masterdata.domain.intake.ImportJob;
 import io.stewardmesh.masterdata.domain.intake.IntakeArtifact;
@@ -22,6 +24,7 @@ public final class StartSupplierImportService implements StartSupplierImport {
     private final IdempotencyRepository idempotencyRepository;
     private final ImportIdentityGenerator identityGenerator;
     private final ApplicationTransaction transaction;
+    private final IntakeTelemetry telemetry;
     private final Clock clock;
 
     public StartSupplierImportService(
@@ -31,6 +34,7 @@ public final class StartSupplierImportService implements StartSupplierImport {
             IdempotencyRepository idempotencyRepository,
             ImportIdentityGenerator identityGenerator,
             ApplicationTransaction transaction,
+            IntakeTelemetry telemetry,
             Clock clock) {
         this.artifactStorage = Objects.requireNonNull(artifactStorage, "artifactStorage must not be null");
         this.artifactRepository =
@@ -42,13 +46,15 @@ public final class StartSupplierImportService implements StartSupplierImport {
         this.identityGenerator =
                 Objects.requireNonNull(identityGenerator, "identityGenerator must not be null");
         this.transaction = Objects.requireNonNull(transaction, "transaction must not be null");
+        this.telemetry = Objects.requireNonNull(telemetry, "telemetry must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
     @Override
     public StartSupplierImportResult execute(StartSupplierImportCommand command) {
         Objects.requireNonNull(command, "command must not be null");
-        IntakeArtifact stagedArtifact = artifactStorage.store(command.workbookContent());
+        IntakeArtifact stagedArtifact = telemetry.measure(
+                Stage.ARTIFACT_STORE, () -> artifactStorage.store(command.workbookContent()));
         return transaction.execute(() -> register(command, stagedArtifact));
     }
 

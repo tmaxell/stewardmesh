@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.stewardmesh.masterdata.application.intake.IdempotencyConflictException;
+import io.stewardmesh.masterdata.application.intake.SourceRecordWriteException;
 import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository.IdempotencyRecord;
@@ -35,7 +36,6 @@ import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -138,7 +138,7 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
         SourceRecord duplicate = sourceRecord(job, "duplicate-record", 1);
 
         assertThrows(
-                DataIntegrityViolationException.class,
+                SourceRecordWriteException.class,
                 () -> sourceRecordWriter.writeBatch(job.id(), List.of(duplicate, duplicate), List.of()));
         assertEquals(0, jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM source_record WHERE import_job_id = ?",

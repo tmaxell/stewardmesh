@@ -10,6 +10,7 @@ import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
 import io.stewardmesh.masterdata.application.port.out.ImportIdentityGenerator;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
+import io.stewardmesh.masterdata.application.port.out.IntakeTelemetry;
 import io.stewardmesh.masterdata.domain.intake.IdempotencyKey;
 import io.stewardmesh.masterdata.domain.intake.ImportJob;
 import io.stewardmesh.masterdata.domain.intake.ImportJobId;
@@ -41,6 +42,7 @@ class SupplierImportServicesTest {
     private static final Instant NOW = Instant.parse("2026-08-28T10:15:30Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
     private static final SourceSystemRef SOURCE = new SourceSystemRef("SYNTHETIC_TEST");
+    private static final IntakeTelemetry TELEMETRY = new NoopTelemetry();
 
     @Test
     void startsOnceAndReturnsTheExistingImportForAnIdenticalReplay() {
@@ -95,6 +97,7 @@ class SupplierImportServicesTest {
                     writtenIssues.addAll(issues);
                 },
                 new DirectTransaction(),
+                TELEMETRY,
                 CLOCK);
 
         ProcessSupplierImportResult result = service.execute(job.id());
@@ -123,6 +126,7 @@ class SupplierImportServicesTest {
                 ignored -> new SupplierWorkbookParseResult(0, List.of(), List.of(issue)),
                 (ignored, records, issues) -> writtenIssues.addAll(issues),
                 new DirectTransaction(),
+                TELEMETRY,
                 CLOCK);
 
         ProcessSupplierImportResult result = service.execute(job.id());
@@ -130,6 +134,55 @@ class SupplierImportServicesTest {
         assertEquals(ImportStatus.FAILED, result.status());
         assertEquals("WORKBOOK_VALIDATION_FAILED", state.jobs.get(job.id()).failureCode().orElseThrow());
         assertEquals(List.of(issue), writtenIssues);
+    }
+
+    @Test
+    void exposesArtifactReadFailureAsAStableTerminalState() {
+        var state = new State();
+        ImportJob job = receivedJob();
+        state.jobs.put(job.id(), job);
+        var service = new ProcessSupplierImportService(
+                state,
+                ignored -> {
+                    throw new IntakeArtifactAccessException("synthetic storage outage");
+                },
+                ignored -> new SupplierWorkbookParseResult(0, List.of(), List.of()),
+                (ignored, records, issues) -> {},
+                new DirectTransaction(),
+                TELEMETRY,
+                CLOCK);
+
+        ProcessSupplierImportResult result = service.execute(job.id());
+
+        assertEquals(ImportStatus.FAILED, result.status());
+        assertEquals(
+                "ARTIFACT_STORAGE_UNAVAILABLE",
+                state.jobs.get(job.id()).failureCode().orElseThrow());
+    }
+
+    @Test
+    void exposesSourceRecordWriteFailureAfterRollingBackTheBatch() {
+        var state = new State();
+        ImportJob job = receivedJob();
+        state.jobs.put(job.id(), job);
+        var service = new ProcessSupplierImportService(
+                state,
+                ignored -> content(),
+                ignored -> new SupplierWorkbookParseResult(1, List.of(), List.of()),
+                (ignored, records, issues) -> {
+                    throw new SourceRecordWriteException(
+                            "synthetic persistence failure", new IllegalStateException("test"));
+                },
+                new DirectTransaction(),
+                TELEMETRY,
+                CLOCK);
+
+        ProcessSupplierImportResult result = service.execute(job.id());
+
+        assertEquals(ImportStatus.FAILED, result.status());
+        assertEquals(
+                "SOURCE_RECORD_PERSISTENCE_FAILED",
+                state.jobs.get(job.id()).failureCode().orElseThrow());
     }
 
     @Test
@@ -163,6 +216,7 @@ class SupplierImportServicesTest {
                 state,
                 new Identities(),
                 new DirectTransaction(),
+                TELEMETRY,
                 CLOCK);
     }
 
@@ -205,6 +259,17 @@ class SupplierImportServicesTest {
         public <T> T execute(Supplier<T> operation) {
             return operation.get();
         }
+    }
+
+    private static final class NoopTelemetry implements IntakeTelemetry {
+
+        @Override
+        public <T> T measure(Stage stage, Supplier<T> operation) {
+            return operation.get();
+        }
+
+        @Override
+        public void recordValidationIssues(List<ValidationIssue> issues) {}
     }
 
     private static final class Identities implements ImportIdentityGenerator {
