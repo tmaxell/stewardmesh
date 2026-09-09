@@ -41,6 +41,13 @@ Phase 1 delivers the first intake vertical slice on the Maven foundation:
 
 The proof covers a valid workbook, deterministic mixed-row evidence, idempotent replay, duplicate source-identity recovery, hostile input rejection, and infrastructure failure boundaries.
 
+```text
+POST workbook -> immutable S3 object -> artifact/job transaction
+                                      -> bounded XLSX parsing
+                                      -> source rows/report transaction
+GET status/report <------------------- validated or failed job
+```
+
 ## Build and run
 
 Java 25 is required. Maven is supplied by the repository wrapper.
@@ -57,7 +64,20 @@ The API is an OAuth2 resource server. Configure `STEWARDMESH_JWK_SET_URI` for th
 
 The disposable E2E proof supplies synthetic authenticated principals without requiring a local identity provider. Running the service itself requires a reachable JWK set URI and appropriately scoped JWTs.
 
-Actuator health, metrics and Prometheus output are exposed under `/actuator`. Console logs use structured JSON and never include workbook rows or supplier identifiers.
+With a scoped development token, the synthetic fixture can be submitted as follows:
+
+```bash
+curl --fail-with-body \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Idempotency-Key: synthetic-demo-1" \
+  -F "sourceSystem=SYNTHETIC_DEMO" \
+  -F "workbook=@test-fixtures/intake/supplier-workbook-v1-valid.xlsx;type=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" \
+  http://localhost:8080/api/v1/supplier-imports
+```
+
+Use the returned `statusUrl` and `reportUrl` with a token carrying `supplier-import.read`. The versioned response and problem schemas live in [the OpenAPI contract](contracts/openapi/supplier-imports-v1.yaml).
+
+Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures and validation codes. Console logs use structured JSON and never include workbook rows or supplier identifiers.
 
 ## Local dependencies
 

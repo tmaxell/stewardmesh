@@ -1,5 +1,6 @@
 package io.stewardmesh.masterdata.bootstrap;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.stewardmesh.masterdata.application.intake.GetSupplierImportReportService;
 import io.stewardmesh.masterdata.application.intake.GetSupplierImportStatusService;
 import io.stewardmesh.masterdata.application.intake.ProcessSupplierImportService;
@@ -13,6 +14,7 @@ import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
 import io.stewardmesh.masterdata.application.port.out.ImportIdentityGenerator;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
+import io.stewardmesh.masterdata.application.port.out.IntakeTelemetry;
 import io.stewardmesh.masterdata.application.port.out.LoadIntakeArtifact;
 import io.stewardmesh.masterdata.application.port.out.ParseSupplierWorkbook;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
@@ -33,6 +35,7 @@ class SupplierImportUseCaseConfiguration {
             IdempotencyRepository idempotencyRepository,
             ImportIdentityGenerator identityGenerator,
             ApplicationTransaction transaction,
+            IntakeTelemetry telemetry,
             Clock clock) {
         return new StartSupplierImportService(
                 artifactStorage,
@@ -41,6 +44,7 @@ class SupplierImportUseCaseConfiguration {
                 idempotencyRepository,
                 identityGenerator,
                 transaction,
+                telemetry,
                 clock);
     }
 
@@ -51,6 +55,7 @@ class SupplierImportUseCaseConfiguration {
             ParseSupplierWorkbook workbookParser,
             SourceRecordWriter sourceRecordWriter,
             ApplicationTransaction transaction,
+            IntakeTelemetry telemetry,
             Clock clock) {
         return new ProcessSupplierImportService(
                 importJobRepository,
@@ -58,6 +63,7 @@ class SupplierImportUseCaseConfiguration {
                 workbookParser,
                 sourceRecordWriter,
                 transaction,
+                telemetry,
                 clock);
     }
 
@@ -70,5 +76,10 @@ class SupplierImportUseCaseConfiguration {
     GetSupplierImportReport getSupplierImportReport(
             ImportJobRepository importJobRepository, ValidationIssueReader validationIssueReader) {
         return new GetSupplierImportReportService(importJobRepository, validationIssueReader);
+    }
+
+    @Bean
+    IntakeTelemetry intakeTelemetry(MeterRegistry meterRegistry) {
+        return new MicrometerIntakeTelemetry(meterRegistry);
     }
 }

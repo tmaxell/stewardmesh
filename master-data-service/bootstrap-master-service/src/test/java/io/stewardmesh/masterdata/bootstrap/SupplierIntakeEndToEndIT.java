@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -81,6 +82,9 @@ class SupplierIntakeEndToEndIT {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
+    private MeterRegistry meterRegistry;
+
+    @Autowired
     private S3Client s3;
 
     @BeforeAll
@@ -141,6 +145,18 @@ class SupplierIntakeEndToEndIT {
         assertEquals(1, s3.listObjectsV2(
                         ListObjectsV2Request.builder().bucket(BUCKET).prefix(storageKey).build())
                 .keyCount());
+        assertTrue(meterRegistry
+                        .get("stewardmesh.imports.stage.duration")
+                        .tag("stage", "artifact_store")
+                        .timer()
+                        .count()
+                >= 1);
+        assertTrue(meterRegistry
+                        .get("stewardmesh.imports.stage.duration")
+                        .tag("stage", "workbook_parse")
+                        .timer()
+                        .count()
+                >= 1);
     }
 
     @Test
@@ -169,6 +185,12 @@ class SupplierIntakeEndToEndIT {
                 .andExpect(jsonPath("$.issues.length()").value(5))
                 .andExpect(jsonPath("$.issues[0].code").value("HEADER_UNKNOWN"))
                 .andExpect(jsonPath("$.issues[1].code").value("REQUIRED_VALUE_MISSING"));
+        assertTrue(meterRegistry
+                        .get("stewardmesh.imports.validation.issues")
+                        .tag("code", "header_unknown")
+                        .counter()
+                        .count()
+                >= 1);
     }
 
     @Test
@@ -193,6 +215,12 @@ class SupplierIntakeEndToEndIT {
                 3,
                 count("SELECT COUNT(*) FROM source_record WHERE origin_system = ?", "E2E_DUPLICATE"));
         assertEquals(2, count("SELECT COUNT(*) FROM import_job WHERE source_system = ?", "E2E_DUPLICATE"));
+        assertTrue(meterRegistry
+                        .get("stewardmesh.imports.stage.failures")
+                        .tag("stage", "persistence_batch")
+                        .counter()
+                        .count()
+                >= 1);
     }
 
     @Test
@@ -229,6 +257,12 @@ class SupplierIntakeEndToEndIT {
                     count(
                             "SELECT COUNT(*) FROM import_job WHERE source_system = ?",
                             "E2E_STORAGE_FAILURE"));
+            assertTrue(meterRegistry
+                            .get("stewardmesh.imports.stage.failures")
+                            .tag("stage", "artifact_store")
+                            .counter()
+                            .count()
+                    >= 1);
         } finally {
             s3.createBucket(CreateBucketRequest.builder().bucket(BUCKET).build());
         }
