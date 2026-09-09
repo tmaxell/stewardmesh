@@ -1,0 +1,158 @@
+{
+  "contractId": "supplier-workbook",
+  "contractVersion": "1.0.0",
+  "format": {
+    "fileExtension": ".xlsx",
+    "mediaTypes": [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ],
+    "requiredSheet": "suppliers",
+    "headerRow": 1,
+    "dataStartRow": 2,
+    "additionalSheets": "reject",
+    "unknownColumns": "warn_and_ignore",
+    "duplicateHeaders": "reject",
+    "fullyBlankRows": "ignore",
+    "formulaCells": "reject_without_evaluation",
+    "macrosAndEmbeddedObjects": "reject"
+  },
+  "limits": {
+    "maxUploadBytes": 5242880,
+    "maxSheets": 1,
+    "maxDataRows": 5000,
+    "maxColumns": 32,
+    "maxCellCharacters": 4096,
+    "maxSharedStrings": 50000,
+    "maxZipEntries": 1000,
+    "minZipInflateRatio": 0.01
+  },
+  "sourceValuePolicy": {
+    "identifiersAreText": true,
+    "preserveOriginalStrings": true,
+    "storeCanonicalValuesSeparately": true,
+    "trimForRequiredChecksOnly": true
+  },
+  "columns": [
+    {
+      "position": 1,
+      "name": "source_record_id",
+      "required": true,
+      "valueType": "text",
+      "maxCharacters": 128
+    },
+    {
+      "position": 2,
+      "name": "source_version",
+      "required": true,
+      "valueType": "positive_integer",
+      "maximum": 2147483647
+    },
+    {
+      "position": 3,
+      "name": "legal_name",
+      "required": true,
+      "valueType": "text",
+      "maxCharacters": 512
+    },
+    {
+      "position": 4,
+      "name": "inn",
+      "required": true,
+      "valueType": "text",
+      "pattern": "^(?:[0-9]{10}|[0-9]{12})$"
+    },
+    {
+      "position": 5,
+      "name": "kpp",
+      "required": false,
+      "requiredWhen": "country_code == 'RU' and any(site_code, procurement_bu_code, site_purpose)",
+      "valueType": "text",
+      "pattern": "^[0-9]{9}$"
+    },
+    {
+      "position": 6,
+      "name": "ogrn",
+      "required": false,
+      "valueType": "text",
+      "pattern": "^(?:[0-9]{13}|[0-9]{15})$"
+    },
+    {
+      "position": 7,
+      "name": "country_code",
+      "required": true,
+      "valueType": "text",
+      "pattern": "^[A-Z]{2}$"
+    },
+    {
+      "position": 8,
+      "name": "postal_code",
+      "required": false,
+      "valueType": "text",
+      "maxCharacters": 32
+    },
+    {
+      "position": 9,
+      "name": "region",
+      "required": false,
+      "valueType": "text",
+      "maxCharacters": 256
+    },
+    {
+      "position": 10,
+      "name": "city",
+      "required": true,
+      "valueType": "text",
+      "maxCharacters": 256
+    },
+    {
+      "position": 11,
+      "name": "address_line",
+      "required": true,
+      "valueType": "text",
+      "maxCharacters": 1024
+    },
+    {
+      "position": 12,
+      "name": "site_code",
+      "required": false,
+      "valueType": "text",
+      "maxCharacters": 128
+    },
+    {
+      "position": 13,
+      "name": "procurement_bu_code",
+      "required": false,
+      "requiredWhen": "site_purpose is present",
+      "valueType": "text",
+      "maxCharacters": 128
+    },
+    {
+      "position": 14,
+      "name": "site_purpose",
+      "required": false,
+      "valueType": "text",
+      "allowedValues": [
+        "PURCHASING",
+        "PAY",
+        "SOURCING",
+        "SHIP_FROM"
+      ]
+    }
+  ],
+  "validationIssues": [
+    { "code": "WORKBOOK_FORMAT_INVALID", "severity": "ERROR" },
+    { "code": "WORKBOOK_LIMIT_EXCEEDED", "severity": "ERROR" },
+    { "code": "WORKBOOK_UNSAFE_CONTENT", "severity": "ERROR" },
+    { "code": "WORKBOOK_SHEET_MISSING", "severity": "ERROR" },
+    { "code": "WORKBOOK_UNEXPECTED_SHEET", "severity": "ERROR" },
+    { "code": "HEADER_MISSING", "severity": "ERROR" },
+    { "code": "HEADER_DUPLICATE", "severity": "ERROR" },
+    { "code": "HEADER_UNKNOWN", "severity": "WARNING" },
+    { "code": "FORMULA_CELL_NOT_ALLOWED", "severity": "ERROR" },
+    { "code": "REQUIRED_VALUE_MISSING", "severity": "ERROR" },
+    { "code": "VALUE_FORMAT_INVALID", "severity": "ERROR" },
+    { "code": "VALUE_TOO_LONG", "severity": "ERROR" },
+    { "code": "VALUE_NOT_ALLOWED", "severity": "ERROR" },
+    { "code": "CONDITIONAL_VALUE_MISSING", "severity": "ERROR" }
+  ]
+}

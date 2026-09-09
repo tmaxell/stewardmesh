@@ -1,0 +1,218 @@
+openapi: 3.1.0
+info:
+  title: StewardMesh Supplier Intake API
+  version: v1
+  description: Bounded, idempotent supplier workbook intake.
+paths:
+  /api/v1/supplier-imports:
+    post:
+      operationId: startSupplierImport
+      summary: Accept and process one supplier workbook
+      security:
+        - bearerAuth: [supplier-import.write]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9._-]{1,128}$'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [sourceSystem, workbook]
+              properties:
+                sourceSystem:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                workbook:
+                  type: string
+                  format: binary
+      responses:
+        '202':
+          description: Import accepted; processing may already be complete for the bounded MVP flow.
+          headers:
+            Location:
+              schema: {type: string, format: uri-reference}
+            X-Correlation-ID:
+              schema: {type: string}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SupplierImportAccepted'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '413': {$ref: '#/components/responses/ContentTooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+  /api/v1/supplier-imports/{importId}:
+    get:
+      operationId: getSupplierImportStatus
+      summary: Read supplier import status
+      security:
+        - bearerAuth: [supplier-import.read]
+      parameters:
+        - $ref: '#/components/parameters/ImportId'
+      responses:
+        '200':
+          description: Current import state and bounded counters.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SupplierImportStatus'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/supplier-imports/{importId}/report:
+    get:
+      operationId: getSupplierImportReport
+      summary: Read one bounded page of validation evidence
+      security:
+        - bearerAuth: [supplier-import.read]
+      parameters:
+        - $ref: '#/components/parameters/ImportId'
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 0, default: 0}
+        - name: size
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Stable validation evidence in deterministic order.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SupplierImportReport'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ImportId:
+      name: importId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+  responses:
+    BadRequest:
+      description: Request contract violation.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Unauthorized:
+      description: Bearer token missing or invalid.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Forbidden:
+      description: Required OAuth scope missing.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    NotFound:
+      description: Import identifier was not found.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Conflict:
+      description: Idempotency key is bound to different content.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    ContentTooLarge:
+      description: Upload exceeds the configured byte limit.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    UnsupportedMediaType:
+      description: Workbook media type is not supported.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    ServiceUnavailable:
+      description: Immutable artifact storage is unavailable.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+  schemas:
+    SupplierImportAccepted:
+      type: object
+      required: [importId, status, replayed, statusUrl, reportUrl]
+      properties:
+        importId: {type: string, format: uuid}
+        status: {$ref: '#/components/schemas/ImportStatus'}
+        replayed: {type: boolean}
+        statusUrl: {type: string}
+        reportUrl: {type: string}
+    SupplierImportStatus:
+      type: object
+      required: [importId, status, counters]
+      properties:
+        importId: {type: string, format: uuid}
+        status: {$ref: '#/components/schemas/ImportStatus'}
+        counters: {$ref: '#/components/schemas/ImportCounters'}
+        failureCode: {type: [string, 'null']}
+    SupplierImportReport:
+      type: object
+      required: [importId, page, size, totalIssues, issues]
+      properties:
+        importId: {type: string, format: uuid}
+        page: {type: integer, minimum: 0}
+        size: {type: integer, minimum: 1, maximum: 100}
+        totalIssues: {type: integer, minimum: 0}
+        issues:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/ValidationIssue'}
+    ImportCounters:
+      type: object
+      required: [totalRows, acceptedRows, rejectedRows, warningCount, errorCount]
+      properties:
+        totalRows: {type: integer, minimum: 0}
+        acceptedRows: {type: integer, minimum: 0}
+        rejectedRows: {type: integer, minimum: 0}
+        warningCount: {type: integer, minimum: 0}
+        errorCount: {type: integer, minimum: 0}
+    ValidationIssue:
+      type: object
+      required: [code, severity, parameters]
+      properties:
+        code: {type: string}
+        severity: {type: string, enum: [WARNING, ERROR]}
+        row: {type: [integer, 'null'], minimum: 1}
+        field: {type: [string, 'null']}
+        parameters:
+          type: object
+          additionalProperties: {type: string}
+          maxProperties: 8
+    ImportStatus:
+      type: string
+      enum: [RECEIVED, PARSING, PARSED, VALIDATING, VALIDATED, FAILED]
+    Problem:
+      type: object
+      required: [type, title, status, detail, instance, code]
+      properties:
+        type: {type: string, format: uri}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        instance: {type: string, format: uri-reference}
+        code: {type: string}

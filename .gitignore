@@ -24,6 +24,9 @@ secrets/
 # Private working documentation (kept locally, never published)
 docs/
 
+# Local agent configuration and skills
+.agents/
+
 # Logs and reports
 *.log
 logs/

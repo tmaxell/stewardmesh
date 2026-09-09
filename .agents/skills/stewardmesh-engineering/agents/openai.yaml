@@ -1,4 +1,0 @@
-interface:
-  display_name: "StewardMesh Engineering"
-  short_description: "Design and build governed agentic retail MDM"
-  default_prompt: "Use $stewardmesh-engineering to design or implement the next repository change."
