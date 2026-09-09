@@ -1,5 +1,7 @@
 package io.stewardmesh.masterdata.domain.intake;
 
+import io.stewardmesh.masterdata.domain.identity.NormalizationRulesetId;
+import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
@@ -9,6 +11,7 @@ public record SourceRecord(
         SourceRecordIdentity identity,
         ImportJobId importJobId,
         Instant ingestedAt,
+        NormalizationRulesetId normalizationRulesetId,
         Map<String, String> originalValues,
         Map<String, String> canonicalValues) {
 
@@ -18,11 +21,27 @@ public record SourceRecord(
         Objects.requireNonNull(identity, "identity must not be null");
         Objects.requireNonNull(importJobId, "importJobId must not be null");
         Objects.requireNonNull(ingestedAt, "ingestedAt must not be null");
+        Objects.requireNonNull(normalizationRulesetId, "normalizationRulesetId must not be null");
         originalValues = immutableValues(originalValues, "originalValues");
         canonicalValues = immutableValues(canonicalValues, "canonicalValues");
         if (!originalValues.keySet().containsAll(canonicalValues.keySet())) {
             throw new IllegalArgumentException("canonical values must be derived from original fields");
         }
+    }
+
+    public SourceRecord(
+            SourceRecordIdentity identity,
+            ImportJobId importJobId,
+            Instant ingestedAt,
+            Map<String, String> originalValues,
+            Map<String, String> canonicalValues) {
+        this(
+                identity,
+                importJobId,
+                ingestedAt,
+                SupplierSourceNormalizer.RULESET_ID,
+                originalValues,
+                canonicalValues);
     }
 
     private static Map<String, String> immutableValues(Map<String, String> values, String name) {

@@ -3,6 +3,7 @@ package io.stewardmesh.masterdata.domain.intake;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,6 +28,7 @@ class SourceRecordTest {
 
         assertEquals("  Synthetic Supplier  ", record.originalValues().get("legal_name"));
         assertEquals("SYNTHETIC SUPPLIER", record.canonicalValues().get("legal_name"));
+        assertEquals(SupplierSourceNormalizer.RULESET_ID, record.normalizationRulesetId());
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> record.originalValues().put("city", "Synthetic City"));
