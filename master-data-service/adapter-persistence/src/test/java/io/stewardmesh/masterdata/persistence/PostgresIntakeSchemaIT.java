@@ -32,6 +32,7 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
                 List.of(
                         "golden_attribute",
                         "golden_record_metadata",
+                        "golden_record_source_association",
                         "golden_record_version",
                         "idempotency_record",
                         "import_job",

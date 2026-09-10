@@ -141,6 +141,17 @@ CREATE TABLE golden_attribute (
     )
 );
 
+CREATE TABLE golden_record_source_association (
+    entity_type VARCHAR(8) NOT NULL,
+    entity_id UUID NOT NULL,
+    projection_version BIGINT NOT NULL,
+    association_id UUID NOT NULL,
+    PRIMARY KEY (entity_type, entity_id, projection_version, association_id),
+    FOREIGN KEY (entity_type, entity_id, projection_version)
+        REFERENCES golden_record_version (entity_type, entity_id, projection_version),
+    FOREIGN KEY (association_id) REFERENCES source_association (association_id)
+);
+
 CREATE INDEX golden_attribute_source_idx
     ON golden_attribute (origin_system, source_record_id, source_version);
 
@@ -172,4 +183,8 @@ CREATE TRIGGER golden_record_version_immutable
 
 CREATE TRIGGER golden_attribute_immutable
     BEFORE UPDATE OR DELETE ON golden_attribute
+    FOR EACH ROW EXECUTE FUNCTION reject_immutable_intake_row();
+
+CREATE TRIGGER golden_record_source_association_immutable
+    BEFORE UPDATE OR DELETE ON golden_record_source_association
     FOR EACH ROW EXECUTE FUNCTION reject_immutable_intake_row();
