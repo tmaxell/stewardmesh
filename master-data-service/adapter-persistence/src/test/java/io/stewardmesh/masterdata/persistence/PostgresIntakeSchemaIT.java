@@ -34,8 +34,63 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
                         "import_job",
                         "intake_artifact",
                         "source_record",
+                        "supplier_party_match_index",
+                        "supplier_site_match_index",
                         "validation_issue"),
                 tables);
+    }
+
+    @Test
+    void createsBoundedCandidateLookupIndexes() {
+        List<String> indexes = jdbcTemplate().queryForList(
+                """
+                SELECT indexname
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND indexname LIKE 'supplier_%_match_%_idx'
+                ORDER BY indexname
+                """,
+                String.class);
+
+        assertEquals(
+                List.of(
+                        "supplier_party_match_inn_idx",
+                        "supplier_party_match_ogrn_idx",
+                        "supplier_site_match_address_idx",
+                        "supplier_site_match_code_idx",
+                        "supplier_site_match_inn_kpp_idx"),
+                indexes);
+    }
+
+    @Test
+    void protectsCandidateIndexIdentifierFormatsAndPartyOwnership() {
+        UUID partyId = UUID.randomUUID();
+        jdbcTemplate().update(
+                "INSERT INTO supplier_party_match_index (party_id, canonical_inn) VALUES (?, ?)",
+                partyId,
+                "9902000005");
+
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> jdbcTemplate().update(
+                        "INSERT INTO supplier_party_match_index (party_id, canonical_inn) VALUES (?, ?)",
+                        UUID.randomUUID(),
+                        "not-an-inn"));
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> jdbcTemplate().update(
+                        """
+                        INSERT INTO supplier_site_match_index
+                            (site_id, party_id, canonical_inn, canonical_country_code,
+                             canonical_city, canonical_address_line)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        "9902000005",
+                        "RU",
+                        "TEST CITY",
+                        "TEST ADDRESS"));
     }
 
     @Test
