@@ -10,3 +10,5 @@ Authoritative modular MDM service. Active foundation modules:
 - `bootstrap-master-service` — Spring Boot composition root.
 
 `adapter-mcp`, `adapter-messaging` and `steward-agent` remain inactive until their first working vertical slices. Dependencies point inward: domain <- application <- adapters <- bootstrap.
+
+The identity-resolution domain distinguishes party and supplier-site candidates, retains bounded feature-level evidence, and applies explicit versioned thresholds. Authoritative identifier conflicts can never produce an automatic link.
