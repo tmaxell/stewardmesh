@@ -23,7 +23,11 @@ class ImportJobTest {
 
         assertEquals(ImportStatus.VALIDATED, validated.status());
         assertEquals(new ImportCounters(3, 2, 1, 1, 2), validated.counters());
-        assertTrue(validated.status().isTerminal());
+        assertEquals(ImportStatus.MATCHED, validated.startMatching().finishMatching(false).status());
+        assertEquals(
+                ImportStatus.REVIEW_REQUIRED,
+                validated.startMatching().finishMatching(true).status());
+        assertTrue(validated.startMatching().finishMatching(false).status().isTerminal());
         assertTrue(validated.failureCode().isEmpty());
         assertEquals(ImportStatus.RECEIVED, received.status(), "transitions must not mutate prior versions");
     }
@@ -38,7 +42,9 @@ class ImportJobTest {
                 .startValidation()
                 .finishValidation(0, 0, 0, 0);
         assertThrows(InvalidImportTransitionException.class, validated::startParsing);
-        assertThrows(InvalidImportTransitionException.class, () -> validated.fail("LATE_FAILURE"));
+        assertThrows(
+                InvalidImportTransitionException.class,
+                () -> validated.startMatching().finishMatching(false).fail("LATE_FAILURE"));
     }
 
     @Test
@@ -48,7 +54,10 @@ class ImportJobTest {
             received,
             received.startParsing(),
             received.startParsing().finishParsing(2),
-            received.startParsing().finishParsing(2).startValidation()
+            received.startParsing().finishParsing(2).startValidation(),
+            received.startParsing().finishParsing(2).startValidation().finishValidation(2, 0, 0, 0),
+            received.startParsing().finishParsing(2).startValidation().finishValidation(2, 0, 0, 0)
+                    .startMatching()
         };
 
         for (var state : states) {

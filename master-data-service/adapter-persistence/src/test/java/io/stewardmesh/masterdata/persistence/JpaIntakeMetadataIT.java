@@ -17,6 +17,9 @@ import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
 import io.stewardmesh.masterdata.application.port.out.LoadSourceRecord;
 import io.stewardmesh.masterdata.application.port.out.LoadMatchProfiles;
 import io.stewardmesh.masterdata.application.port.out.StoreMatchEvaluation;
+import io.stewardmesh.masterdata.application.port.out.LoadImportMatchWork;
+import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluationSummary;
+import io.stewardmesh.masterdata.application.port.out.StoreStewardshipCase;
 import io.stewardmesh.masterdata.application.identity.MatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.ValidationIssueReader;
 import io.stewardmesh.masterdata.domain.intake.IdempotencyKey;
@@ -36,6 +39,8 @@ import io.stewardmesh.masterdata.domain.identity.SupplierMatchInput;
 import io.stewardmesh.masterdata.domain.identity.SupplierMatchScorer;
 import io.stewardmesh.masterdata.domain.model.SupplierPartyId;
 import io.stewardmesh.masterdata.domain.model.SupplierSiteId;
+import io.stewardmesh.masterdata.domain.stewardship.StewardshipCase;
+import io.stewardmesh.masterdata.domain.stewardship.StewardshipCaseReason;
 import io.stewardmesh.masterdata.persistence.jpa.IntakePersistenceConfiguration;
 import java.time.Instant;
 import java.util.List;
@@ -80,6 +85,15 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
 
     @Autowired
     private StoreMatchEvaluation matchEvaluationStore;
+
+    @Autowired
+    private LoadImportMatchWork importMatchWorkLoader;
+
+    @Autowired
+    private LoadMatchEvaluationSummary matchEvaluationSummaryLoader;
+
+    @Autowired
+    private StoreStewardshipCase stewardshipCaseStore;
 
     @Autowired
     private ValidationIssueReader validationIssueReader;
@@ -233,6 +247,22 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
 
         matchEvaluationStore.save(evaluation);
         matchEvaluationStore.save(evaluation);
+        var summary = matchEvaluationSummaryLoader
+                .find(sourceRecord.identity(), SupplierMatchScorer.RULESET.id())
+                .orElseThrow();
+        assertFalse(summary.reviewRequired());
+        assertEquals(List.of(sourceRecord.identity()), importMatchWorkLoader.load(job.id()).stream()
+                .filter(io.stewardmesh.masterdata.application.identity.ImportMatchWorkItem::latestVersion)
+                .map(io.stewardmesh.masterdata.application.identity.ImportMatchWorkItem::sourceRecordIdentity)
+                .toList());
+
+        var reviewCase = new StewardshipCase(
+                sourceRecord.identity(),
+                SupplierMatchScorer.RULESET.id(),
+                StewardshipCaseReason.AMBIGUOUS_MATCH,
+                evaluation.evaluatedAt());
+        stewardshipCaseStore.save(reviewCase);
+        stewardshipCaseStore.save(reviewCase);
 
         assertEquals(1, jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM match_evaluation WHERE source_record_id = ?",
@@ -249,6 +279,20 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
                 """,
                 String.class,
                 sourceRecord.identity().sourceRecordId()));
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM stewardship_case WHERE source_record_id = ?",
+                Integer.class,
+                sourceRecord.identity().sourceRecordId()));
+
+        ImportJob validated = job.startParsing()
+                .finishParsing(1)
+                .startValidation()
+                .finishValidation(1, 0, 0, 0);
+        importJobRepository.save(validated.startMatching());
+        importJobRepository.save(validated.startMatching().finishMatching(true));
+        assertEquals(
+                ImportStatus.REVIEW_REQUIRED,
+                importJobRepository.findById(job.id()).orElseThrow().status());
     }
 
     @Test
