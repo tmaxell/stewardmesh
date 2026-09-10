@@ -78,6 +78,17 @@ public final class ImportJob {
                         counters.totalRows(), acceptedRows, rejectedRows, warningCount, errorCount));
     }
 
+    public ImportJob startMatching() {
+        return transition(ImportStatus.VALIDATED, ImportStatus.MATCHING, counters);
+    }
+
+    public ImportJob finishMatching(boolean reviewRequired) {
+        return transition(
+                ImportStatus.MATCHING,
+                reviewRequired ? ImportStatus.REVIEW_REQUIRED : ImportStatus.MATCHED,
+                counters);
+    }
+
     public ImportJob fail(String code) {
         if (status.isTerminal()) {
             throw new InvalidImportTransitionException(status, ImportStatus.FAILED);
