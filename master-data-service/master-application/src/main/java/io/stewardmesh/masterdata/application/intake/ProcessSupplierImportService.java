@@ -61,7 +61,7 @@ public final class ProcessSupplierImportService implements ProcessSupplierImport
     public ProcessSupplierImportResult execute(ImportJobId importJobId) {
         Objects.requireNonNull(importJobId, "importJobId must not be null");
         ImportJob received = find(importJobId);
-        if (received.status().isTerminal()) {
+        if (received.status() != io.stewardmesh.masterdata.domain.intake.ImportStatus.RECEIVED) {
             return result(received);
         }
 
