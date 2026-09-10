@@ -36,6 +36,7 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
                         "match_decision",
                         "match_evaluation",
                         "source_record",
+                        "stewardship_case",
                         "supplier_party_match_index",
                         "supplier_site_match_index",
                         "validation_issue"),
