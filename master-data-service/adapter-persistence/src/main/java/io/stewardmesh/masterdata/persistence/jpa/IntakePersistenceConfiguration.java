@@ -12,6 +12,8 @@ import io.stewardmesh.masterdata.application.port.out.StoreMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.LoadImportMatchWork;
 import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluationSummary;
 import io.stewardmesh.masterdata.application.port.out.StoreStewardshipCase;
+import io.stewardmesh.masterdata.application.port.out.StoreGoldenRecordProjection;
+import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordProjection;
 import io.stewardmesh.masterdata.application.port.out.ValidationIssueReader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordWriter;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordLoader;
@@ -21,6 +23,8 @@ import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchProfileLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcImportMatchWorkLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchEvaluationSummaryLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcStewardshipCaseStore;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordProjectionStore;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordProjectionLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcValidationIssueReader;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
@@ -37,6 +41,23 @@ import tools.jackson.databind.ObjectMapper;
 @EntityScan(basePackageClasses = IntakeArtifactEntity.class)
 @EnableJpaRepositories(basePackageClasses = SpringDataIntakeArtifactRepository.class)
 public class IntakePersistenceConfiguration {
+
+    @Bean
+    JpaGoldenRecordMetadataStore goldenRecordMetadataStore(
+            SpringDataGoldenRecordMetadataRepository repository) {
+        return new JpaGoldenRecordMetadataStore(repository);
+    }
+
+    @Bean
+    StoreGoldenRecordProjection goldenRecordProjectionStore(
+            JdbcTemplate jdbcTemplate, JpaGoldenRecordMetadataStore metadataStore) {
+        return new JdbcGoldenRecordProjectionStore(jdbcTemplate, metadataStore);
+    }
+
+    @Bean
+    LoadGoldenRecordProjection goldenRecordProjectionLoader(JdbcTemplate jdbcTemplate) {
+        return new JdbcGoldenRecordProjectionLoader(jdbcTemplate);
+    }
 
     @Bean
     ApplicationTransaction applicationTransaction(PlatformTransactionManager transactionManager) {
