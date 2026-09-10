@@ -1,12 +1,16 @@
 package io.stewardmesh.masterdata.persistence.jpa;
 
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
+import io.stewardmesh.masterdata.application.port.out.BlockMatchCandidates;
 import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
+import io.stewardmesh.masterdata.application.port.out.LoadSourceRecord;
 import io.stewardmesh.masterdata.application.port.out.ValidationIssueReader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordWriter;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordLoader;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchCandidateBlocker;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcValidationIssueReader;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
@@ -14,6 +18,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
@@ -53,6 +58,16 @@ public class IntakePersistenceConfiguration {
     @Bean
     SourceRecordWriter sourceRecordWriter(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
         return new JdbcSourceRecordWriter(jdbcTemplate, objectMapper);
+    }
+
+    @Bean
+    LoadSourceRecord sourceRecordLoader(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
+        return new JdbcSourceRecordLoader(jdbcTemplate, objectMapper);
+    }
+
+    @Bean
+    BlockMatchCandidates matchCandidateBlocker(JdbcTemplate jdbcTemplate) {
+        return new JdbcMatchCandidateBlocker(new NamedParameterJdbcTemplate(jdbcTemplate));
     }
 
     @Bean

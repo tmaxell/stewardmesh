@@ -2,6 +2,7 @@ package io.stewardmesh.masterdata.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.stewardmesh.masterdata.application.intake.IdempotencyConflictException;
@@ -10,8 +11,10 @@ import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository.IdempotencyRecord;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
+import io.stewardmesh.masterdata.application.port.out.BlockMatchCandidates;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
+import io.stewardmesh.masterdata.application.port.out.LoadSourceRecord;
 import io.stewardmesh.masterdata.application.port.out.ValidationIssueReader;
 import io.stewardmesh.masterdata.domain.intake.IdempotencyKey;
 import io.stewardmesh.masterdata.domain.intake.ImportJob;
@@ -57,6 +60,12 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
 
     @Autowired
     private SourceRecordWriter sourceRecordWriter;
+
+    @Autowired
+    private LoadSourceRecord sourceRecordLoader;
+
+    @Autowired
+    private BlockMatchCandidates matchCandidateBlocker;
 
     @Autowired
     private ValidationIssueReader validationIssueReader;
@@ -135,6 +144,11 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
                 "SELECT normalization_ruleset FROM source_record WHERE import_job_id = ?",
                 String.class,
                 job.id().value()));
+        assertEquals(sourceRecord, sourceRecordLoader.findByIdentity(sourceRecord.identity()).orElseThrow());
+        assertFalse(sourceRecordLoader
+                .findByIdentity(new SourceRecordIdentity(job.sourceSystem(), "missing-record", 1))
+                .isPresent());
+        assertNotNull(matchCandidateBlocker);
     }
 
     @Test
