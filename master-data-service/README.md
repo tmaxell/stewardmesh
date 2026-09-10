@@ -16,3 +16,5 @@ The identity-resolution domain distinguishes party and supplier-site candidates,
 Candidate blocking is exposed through a bounded application use case and persistence-neutral output ports. The application layer deduplicates evidence, orders results deterministically, and reports truncation; query strategy and storage remain adapter concerns.
 
 PostgreSQL maintains compact party and supplier-site match indexes as derived lookup projections rather than master aggregates. JDBC performs bounded INN/OGRN, INN+KPP, site-code, and normalized-address blocking; the application remains responsible for deduplication and truncation semantics.
+
+The golden-record domain keeps `SupplierParty`, `SupplierAddress`, and `SupplierSite` as separate versioned projections. Initial survivorship selects canonical attributes by explicit source priority, recency, completeness, and a stable tie-break; every selected value retains its source record, association, rule, ruleset, and decision time. Only conflict-free automatic match decisions can create source associations, and unlinking retains the original evidence for later explanation or reversal.
