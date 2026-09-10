@@ -14,3 +14,5 @@ Authoritative modular MDM service. Active foundation modules:
 The identity-resolution domain distinguishes party and supplier-site candidates, retains bounded feature-level evidence, and applies explicit versioned thresholds. Authoritative identifier conflicts can never produce an automatic link.
 
 Candidate blocking is exposed through a bounded application use case and persistence-neutral output ports. The application layer deduplicates evidence, orders results deterministically, and reports truncation; query strategy and storage remain adapter concerns.
+
+PostgreSQL maintains compact party and supplier-site match indexes as derived lookup projections rather than master aggregates. JDBC performs bounded INN/OGRN, INN+KPP, site-code, and normalized-address blocking; the application remains responsible for deduplication and truncation semantics.
