@@ -39,6 +39,12 @@ import tools.jackson.databind.ObjectMapper;
 public class IntakePersistenceConfiguration {
 
     @Bean
+    JpaGoldenRecordMetadataStore goldenRecordMetadataStore(
+            SpringDataGoldenRecordMetadataRepository repository) {
+        return new JpaGoldenRecordMetadataStore(repository);
+    }
+
+    @Bean
     ApplicationTransaction applicationTransaction(PlatformTransactionManager transactionManager) {
         return new SpringApplicationTransaction(new TransactionTemplate(transactionManager));
     }
