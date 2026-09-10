@@ -52,6 +52,8 @@ Phase 2 begins with deterministic supplier source normalization and bounded iden
 
 Every candidate decision is stored immutably with its ruleset, outcome, score, hard-conflict flag and complete feature evidence. Evidence contains stable feature codes and contributions, never raw supplier values. Repeating the same source-version/ruleset evaluation is idempotent.
 
+Validated imports can be handed to a resumable matching use case. It rejects stale source versions before processing, reuses already persisted evaluations after a retry, and finishes as `MATCHED` or `REVIEW_REQUIRED`. Review/conflict outcomes create one immutable, idempotent stewardship case per source version and scoring ruleset.
+
 ## Build and run
 
 Java 25 is required. Maven is supplied by the repository wrapper.
