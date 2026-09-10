@@ -7,10 +7,14 @@ import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
 import io.stewardmesh.masterdata.application.port.out.LoadSourceRecord;
+import io.stewardmesh.masterdata.application.port.out.LoadMatchProfiles;
+import io.stewardmesh.masterdata.application.port.out.StoreMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.ValidationIssueReader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordWriter;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchCandidateBlocker;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchEvaluationStore;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchProfileLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcValidationIssueReader;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
@@ -68,6 +72,17 @@ public class IntakePersistenceConfiguration {
     @Bean
     BlockMatchCandidates matchCandidateBlocker(JdbcTemplate jdbcTemplate) {
         return new JdbcMatchCandidateBlocker(new NamedParameterJdbcTemplate(jdbcTemplate));
+    }
+
+    @Bean
+    LoadMatchProfiles matchProfileLoader(JdbcTemplate jdbcTemplate) {
+        return new JdbcMatchProfileLoader(new NamedParameterJdbcTemplate(jdbcTemplate));
+    }
+
+    @Bean
+    StoreMatchEvaluation matchEvaluationStore(
+            JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
+        return new JdbcMatchEvaluationStore(jdbcTemplate, objectMapper);
     }
 
     @Bean

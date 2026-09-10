@@ -33,6 +33,8 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
                         "idempotency_record",
                         "import_job",
                         "intake_artifact",
+                        "match_decision",
+                        "match_evaluation",
                         "source_record",
                         "supplier_party_match_index",
                         "supplier_site_match_index",
