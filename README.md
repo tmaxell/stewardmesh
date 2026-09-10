@@ -48,7 +48,9 @@ POST workbook -> immutable S3 object -> artifact/job transaction
 GET status/report <------------------- validated or failed job
 ```
 
-Phase 2 begins with deterministic supplier source normalization. Original assertions remain unchanged; separately stored canonical values carry the exact normalization ruleset identifier so later matching and golden-record projections can be reproduced.
+Phase 2 begins with deterministic supplier source normalization and bounded identity resolution. Original assertions remain unchanged; separately stored canonical values carry the exact normalization ruleset identifier so later matching and golden-record projections can be reproduced. PostgreSQL blocking produces bounded party and site candidates, then the versioned `supplier-identity-v1` ruleset calculates basis-point scores from identifier equality and token similarity. Authoritative identifier conflicts prevent automatic links.
+
+Every candidate decision is stored immutably with its ruleset, outcome, score, hard-conflict flag and complete feature evidence. Evidence contains stable feature codes and contributions, never raw supplier values. Repeating the same source-version/ruleset evaluation is idempotent.
 
 ## Build and run
 
@@ -79,7 +81,7 @@ curl --fail-with-body \
 
 Use the returned `statusUrl` and `reportUrl` with a token carrying `supplier-import.read`. The versioned response and problem schemas live in [the OpenAPI contract](contracts/openapi/supplier-imports-v1.yaml).
 
-Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures and validation codes. Console logs use structured JSON and never include workbook rows or supplier identifiers.
+Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes. Matching metric labels use only bounded entity/outcome/conflict dimensions. Console logs use structured JSON and never include workbook rows or supplier identifiers.
 
 ## Local dependencies
 
