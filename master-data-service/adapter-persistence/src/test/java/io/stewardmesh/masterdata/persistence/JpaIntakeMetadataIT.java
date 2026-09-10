@@ -15,6 +15,9 @@ import io.stewardmesh.masterdata.application.port.out.BlockMatchCandidates;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
 import io.stewardmesh.masterdata.application.port.out.LoadSourceRecord;
+import io.stewardmesh.masterdata.application.port.out.LoadMatchProfiles;
+import io.stewardmesh.masterdata.application.port.out.StoreMatchEvaluation;
+import io.stewardmesh.masterdata.application.identity.MatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.ValidationIssueReader;
 import io.stewardmesh.masterdata.domain.intake.IdempotencyKey;
 import io.stewardmesh.masterdata.domain.intake.ImportJob;
@@ -29,11 +32,16 @@ import io.stewardmesh.masterdata.domain.intake.SourceRecordIdentity;
 import io.stewardmesh.masterdata.domain.intake.ValidationCode;
 import io.stewardmesh.masterdata.domain.intake.ValidationIssue;
 import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
+import io.stewardmesh.masterdata.domain.identity.SupplierMatchInput;
+import io.stewardmesh.masterdata.domain.identity.SupplierMatchScorer;
+import io.stewardmesh.masterdata.domain.model.SupplierPartyId;
+import io.stewardmesh.masterdata.domain.model.SupplierSiteId;
 import io.stewardmesh.masterdata.persistence.jpa.IntakePersistenceConfiguration;
 import java.time.Instant;
-import java.util.UUID;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
@@ -66,6 +74,12 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
 
     @Autowired
     private BlockMatchCandidates matchCandidateBlocker;
+
+    @Autowired
+    private LoadMatchProfiles matchProfileLoader;
+
+    @Autowired
+    private StoreMatchEvaluation matchEvaluationStore;
 
     @Autowired
     private ValidationIssueReader validationIssueReader;
@@ -163,6 +177,78 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
                 "SELECT COUNT(*) FROM source_record WHERE import_job_id = ?",
                 Integer.class,
                 job.id().value()));
+    }
+
+    @Test
+    void loadsMatchProfilesAndIdempotentlyPersistsCompleteEvidence() {
+        ImportJob job = persistedJob("SYNTHETIC_MATCH");
+        SourceRecord sourceRecord = sourceRecord(job, "match-record-1", 1);
+        sourceRecordWriter.writeBatch(job.id(), List.of(sourceRecord), List.of());
+        SupplierPartyId partyId = new SupplierPartyId(UUID.randomUUID());
+        SupplierSiteId siteId = new SupplierSiteId(UUID.randomUUID());
+        jdbcTemplate.update(
+                """
+                INSERT INTO supplier_party_match_index
+                    (party_id, canonical_inn, canonical_ogrn, canonical_legal_name)
+                VALUES (?, ?, ?, ?)
+                """,
+                partyId.value(),
+                "9902000005",
+                "1027700132195",
+                "SYNTHETIC SUPPLIER");
+        jdbcTemplate.update(
+                """
+                INSERT INTO supplier_site_match_index
+                    (site_id, party_id, canonical_inn, canonical_kpp, canonical_site_code,
+                     canonical_country_code, canonical_city, canonical_address_line)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                siteId.value(),
+                partyId.value(),
+                "9902000005",
+                "990201001",
+                "SITE-A",
+                "RU",
+                "TEST CITY",
+                "TEST ADDRESS");
+
+        var party = matchProfileLoader.loadParties(Set.of(partyId)).getFirst();
+        var site = matchProfileLoader.loadSites(Set.of(siteId)).getFirst();
+        var scorer = new SupplierMatchScorer();
+        var input = new SupplierMatchInput(
+                "9902000005",
+                "1027700132195",
+                "SYNTHETIC SUPPLIER",
+                "990201001",
+                "SITE-A",
+                "RU",
+                "TEST CITY",
+                "TEST ADDRESS");
+        var evaluation = new MatchEvaluation(
+                sourceRecord.identity(),
+                SupplierMatchScorer.RULESET.id(),
+                CREATED_AT.plusSeconds(60),
+                List.of(scorer.decide(scorer.scoreParty(input, party))),
+                List.of(scorer.decide(scorer.scoreSite(input, site))));
+
+        matchEvaluationStore.save(evaluation);
+        matchEvaluationStore.save(evaluation);
+
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM match_evaluation WHERE source_record_id = ?",
+                Integer.class,
+                sourceRecord.identity().sourceRecordId()));
+        assertEquals(2, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM match_decision WHERE source_record_id = ?",
+                Integer.class,
+                sourceRecord.identity().sourceRecordId()));
+        assertEquals("array", jdbcTemplate.queryForObject(
+                """
+                SELECT jsonb_typeof(features) FROM match_decision
+                WHERE source_record_id = ? LIMIT 1
+                """,
+                String.class,
+                sourceRecord.identity().sourceRecordId()));
     }
 
     @Test
