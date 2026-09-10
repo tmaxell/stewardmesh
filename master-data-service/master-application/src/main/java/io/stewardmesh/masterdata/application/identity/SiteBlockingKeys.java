@@ -7,6 +7,8 @@ public record SiteBlockingKeys(
         String inn,
         String kpp,
         String siteCode,
+        String procurementBusinessUnitCode,
+        String sitePurpose,
         String countryCode,
         String postalCode,
         String region,
@@ -17,13 +19,18 @@ public record SiteBlockingKeys(
         inn = requireDigits(inn, 10, 12, "inn");
         kpp = optionalDigits(kpp, 9, "kpp");
         siteCode = optional(siteCode);
+        procurementBusinessUnitCode = optional(procurementBusinessUnitCode);
+        sitePurpose = optional(sitePurpose);
         countryCode = requireText(countryCode, "countryCode");
         postalCode = optional(postalCode);
         region = optional(region);
         city = requireText(city, "city");
         addressLine = requireText(addressLine, "addressLine");
-        if (kpp == null && siteCode == null) {
-            throw new IllegalArgumentException("site blocking requires KPP or source site code context");
+        if (kpp == null
+                && siteCode == null
+                && procurementBusinessUnitCode == null
+                && sitePurpose == null) {
+            throw new IllegalArgumentException("site blocking requires source site context");
         }
     }
 

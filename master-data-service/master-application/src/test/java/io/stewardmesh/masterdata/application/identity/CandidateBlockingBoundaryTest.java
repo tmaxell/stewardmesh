@@ -54,6 +54,8 @@ class CandidateBlockingBoundaryTest {
                         "9902000005",
                         null,
                         null,
+                        null,
+                        null,
                         "RU",
                         "100001",
                         "TEST REGION",
