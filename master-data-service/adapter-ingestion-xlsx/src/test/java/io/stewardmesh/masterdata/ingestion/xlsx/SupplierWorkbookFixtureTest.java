@@ -2,9 +2,11 @@ package io.stewardmesh.masterdata.ingestion.xlsx;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.stewardmesh.masterdata.domain.intake.ImportPolicy;
 import io.stewardmesh.masterdata.domain.intake.ValidationCode;
+import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -93,6 +95,15 @@ class SupplierWorkbookFixtureTest {
                 Arrays.stream(ValidationCode.values()).map(Enum::name).toList();
 
         assertEquals(domainCodes, contractCodes);
+    }
+
+    @Test
+    void domainNormalizationRulesetMatchesThePublishedWorkbookContract() throws IOException {
+        Pattern pattern = Pattern.compile("\\\"normalizationRuleset\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
+        Matcher matcher = pattern.matcher(contractText());
+
+        assertTrue(matcher.find(), "missing normalizationRuleset in supplier workbook contract");
+        assertEquals(SupplierSourceNormalizer.RULESET_ID.value(), matcher.group(1));
     }
 
     private static Workbook openFixture(String name) throws IOException {

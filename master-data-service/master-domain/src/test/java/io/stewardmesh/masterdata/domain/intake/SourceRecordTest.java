@@ -3,6 +3,7 @@ package io.stewardmesh.masterdata.domain.intake;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +21,7 @@ class SourceRecordTest {
                 new SourceRecordIdentity(new SourceSystemRef("SYNTHETIC_ERP"), "supplier-42", 2),
                 new ImportJobId(UUID.fromString("018f3f70-79b2-7d6a-bf40-3d52dc2bb10b")),
                 Instant.parse("2026-08-28T10:15:30Z"),
+                SupplierSourceNormalizer.RULESET_ID,
                 originals,
                 canonical);
         originals.put("legal_name", "changed");
@@ -27,6 +29,7 @@ class SourceRecordTest {
 
         assertEquals("  Synthetic Supplier  ", record.originalValues().get("legal_name"));
         assertEquals("SYNTHETIC SUPPLIER", record.canonicalValues().get("legal_name"));
+        assertEquals(SupplierSourceNormalizer.RULESET_ID, record.normalizationRulesetId());
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> record.originalValues().put("city", "Synthetic City"));
@@ -42,6 +45,7 @@ class SourceRecordTest {
                         new ImportJobId(
                                 UUID.fromString("018f3f70-79b2-7d6a-bf40-3d52dc2bb10b")),
                         Instant.parse("2026-08-28T10:15:30Z"),
+                        SupplierSourceNormalizer.RULESET_ID,
                         Map.of("legal_name", "Synthetic Supplier"),
                         Map.of("inn", "9902000005")));
     }

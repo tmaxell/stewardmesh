@@ -49,6 +49,15 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
     }
 
     @Test
+    void requiresAnExplicitVersionedNormalizationRuleset() {
+        UUID importJobId = insertImportGraph();
+
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> insertSourceRecord(importJobId, "record-invalid-ruleset", 1, "supplier-source"));
+    }
+
+    @Test
     void preventsChangingOrDeletingImmutableSourceAssertions() {
         UUID importJobId = insertImportGraph();
         insertSourceRecord(importJobId, "record-immutable", 1);
@@ -106,18 +115,25 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
     }
 
     private static void insertSourceRecord(UUID importJobId, String sourceRecordId, long version) {
+        insertSourceRecord(importJobId, sourceRecordId, version, "supplier-source-v1");
+    }
+
+    private static void insertSourceRecord(
+            UUID importJobId, String sourceRecordId, long version, String normalizationRuleset) {
         jdbcTemplate().update(
                 """
                 INSERT INTO source_record
                     (origin_system, source_record_id, source_version, import_job_id,
-                     ingested_at, original_values, canonical_values, canonical_inn)
-                VALUES (?, ?, ?, ?, ?, '{}'::jsonb, '{}'::jsonb, ?)
+                     ingested_at, normalization_ruleset,
+                     original_values, canonical_values, canonical_inn)
+                VALUES (?, ?, ?, ?, ?, ?, '{}'::jsonb, '{}'::jsonb, ?)
                 """,
                 "SYNTHETIC_ERP",
                 sourceRecordId,
                 version,
                 importJobId,
                 Timestamp.from(Instant.parse("2026-08-28T10:16:00Z")),
+                normalizationRuleset,
                 "9902000005");
     }
 

@@ -48,6 +48,8 @@ POST workbook -> immutable S3 object -> artifact/job transaction
 GET status/report <------------------- validated or failed job
 ```
 
+Phase 2 begins with deterministic supplier source normalization. Original assertions remain unchanged; separately stored canonical values carry the exact normalization ruleset identifier so later matching and golden-record projections can be reproduced.
+
 ## Build and run
 
 Java 25 is required. Maven is supplied by the repository wrapper.
