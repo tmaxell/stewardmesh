@@ -8,9 +8,9 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 @OpenAPIDefinition(info = @Info(
-        title = "StewardMesh Supplier Intake API",
+        title = "StewardMesh Master Data API",
         version = "v1",
-        description = "Bounded, idempotent supplier workbook intake"))
+        description = "Bounded supplier intake and identity-resolution reads"))
 @SecurityScheme(
         name = "bearerAuth",
         type = SecuritySchemeType.HTTP,

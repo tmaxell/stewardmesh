@@ -23,8 +23,9 @@ public class JdbcSourceRecordWriter implements SourceRecordWriter {
     private static final String INSERT_SOURCE_RECORD = """
             INSERT INTO source_record
                 (origin_system, source_record_id, source_version, import_job_id, ingested_at,
-                 original_values, canonical_values, canonical_inn, canonical_kpp, canonical_ogrn)
-            VALUES (?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), ?, ?, ?)
+                 normalization_ruleset, original_values, canonical_values,
+                 canonical_inn, canonical_kpp, canonical_ogrn)
+            VALUES (?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), ?, ?, ?)
             """;
     private static final String INSERT_VALIDATION_ISSUE = """
             INSERT INTO validation_issue
@@ -84,11 +85,12 @@ public class JdbcSourceRecordWriter implements SourceRecordWriter {
             statement.setLong(3, record.identity().sourceVersion());
             statement.setObject(4, record.importJobId().value());
             statement.setTimestamp(5, Timestamp.from(record.ingestedAt()));
-            statement.setString(6, json(record.originalValues()));
-            statement.setString(7, json(record.canonicalValues()));
-            statement.setString(8, record.canonicalValues().get("inn"));
-            statement.setString(9, record.canonicalValues().get("kpp"));
-            statement.setString(10, record.canonicalValues().get("ogrn"));
+            statement.setString(6, record.normalizationRulesetId().value());
+            statement.setString(7, json(record.originalValues()));
+            statement.setString(8, json(record.canonicalValues()));
+            statement.setString(9, record.canonicalValues().get("inn"));
+            statement.setString(10, record.canonicalValues().get("kpp"));
+            statement.setString(11, record.canonicalValues().get("ogrn"));
         }
 
         @Override

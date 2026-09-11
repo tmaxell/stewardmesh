@@ -205,7 +205,7 @@ components:
           maxProperties: 8
     ImportStatus:
       type: string
-      enum: [RECEIVED, PARSING, PARSED, VALIDATING, VALIDATED, FAILED]
+      enum: [RECEIVED, PARSING, PARSED, VALIDATING, VALIDATED, MATCHING, MATCHED, REVIEW_REQUIRED, FAILED]
     Problem:
       type: object
       required: [type, title, status, detail, instance, code]

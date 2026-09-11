@@ -23,6 +23,7 @@ import io.stewardmesh.masterdata.domain.intake.SourceRecordIdentity;
 import io.stewardmesh.masterdata.domain.intake.SourceSystemRef;
 import io.stewardmesh.masterdata.domain.intake.ValidationCode;
 import io.stewardmesh.masterdata.domain.intake.ValidationIssue;
+import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.Clock;
@@ -82,6 +83,7 @@ class SupplierImportServicesTest {
                 new SourceRecordIdentity(SOURCE, "record-1", 1),
                 job.id(),
                 NOW,
+                SupplierSourceNormalizer.RULESET_ID,
                 Map.of("legal_name", " Synthetic Supplier "),
                 Map.of("legal_name", "Synthetic Supplier"));
         var issue = new ValidationIssue(

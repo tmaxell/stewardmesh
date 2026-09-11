@@ -1,6 +1,6 @@
 {
   "contractId": "supplier-workbook",
-  "contractVersion": "1.0.0",
+  "contractVersion": "1.1.0",
   "format": {
     "fileExtension": ".xlsx",
     "mediaTypes": [
@@ -30,7 +30,23 @@
     "identifiersAreText": true,
     "preserveOriginalStrings": true,
     "storeCanonicalValuesSeparately": true,
-    "trimForRequiredChecksOnly": true
+    "trimForRequiredChecksOnly": true,
+    "normalizationRuleset": "supplier-source-v1",
+    "normalization": {
+      "unicodeForm": "NFKC",
+      "whitespace": "trim_and_collapse_to_ascii_space",
+      "emptyValues": "omit",
+      "uppercaseFields": [
+        "legal_name",
+        "country_code",
+        "region",
+        "city",
+        "address_line",
+        "site_code",
+        "procurement_bu_code",
+        "site_purpose"
+      ]
+    }
   },
   "columns": [
     {

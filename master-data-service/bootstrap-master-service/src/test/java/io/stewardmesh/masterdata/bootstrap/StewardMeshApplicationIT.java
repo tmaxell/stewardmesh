@@ -7,6 +7,9 @@ import io.stewardmesh.masterdata.application.port.out.LoadIntakeArtifact;
 import io.stewardmesh.masterdata.application.port.out.ParseSupplierWorkbook;
 import io.stewardmesh.masterdata.application.port.out.StoreIntakeArtifact;
 import io.stewardmesh.masterdata.application.port.in.StartSupplierImport;
+import io.stewardmesh.masterdata.application.port.in.GenerateMatchCandidates;
+import io.stewardmesh.masterdata.application.port.in.ScoreMatchCandidates;
+import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -35,6 +38,15 @@ class StewardMeshApplicationIT {
     @Autowired
     private StartSupplierImport startSupplierImport;
 
+    @Autowired
+    private GenerateMatchCandidates generateMatchCandidates;
+
+    @Autowired
+    private ScoreMatchCandidates scoreMatchCandidates;
+
+    @Autowired
+    private RouteSupplierImportMatches routeSupplierImportMatches;
+
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
@@ -47,5 +59,8 @@ class StewardMeshApplicationIT {
         assertSame(storeIntakeArtifact, loadIntakeArtifact);
         assertNotNull(parseSupplierWorkbook);
         assertNotNull(startSupplierImport);
+        assertNotNull(generateMatchCandidates);
+        assertNotNull(scoreMatchCandidates);
+        assertNotNull(routeSupplierImportMatches);
     }
 }

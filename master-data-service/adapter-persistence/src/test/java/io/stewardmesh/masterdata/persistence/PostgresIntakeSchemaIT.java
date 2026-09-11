@@ -30,12 +30,75 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
 
         assertEquals(
                 List.of(
+                        "golden_attribute",
+                        "golden_record_metadata",
+                        "golden_record_source_association",
+                        "golden_record_version",
                         "idempotency_record",
                         "import_job",
                         "intake_artifact",
+                        "match_decision",
+                        "match_evaluation",
+                        "source_association",
                         "source_record",
+                        "stewardship_case",
+                        "supplier_party_match_index",
+                        "supplier_site_match_index",
                         "validation_issue"),
                 tables);
+    }
+
+    @Test
+    void createsBoundedCandidateLookupIndexes() {
+        List<String> indexes = jdbcTemplate().queryForList(
+                """
+                SELECT indexname
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND indexname LIKE 'supplier_%_match_%_idx'
+                ORDER BY indexname
+                """,
+                String.class);
+
+        assertEquals(
+                List.of(
+                        "supplier_party_match_inn_idx",
+                        "supplier_party_match_ogrn_idx",
+                        "supplier_site_match_address_idx",
+                        "supplier_site_match_code_idx",
+                        "supplier_site_match_inn_kpp_idx"),
+                indexes);
+    }
+
+    @Test
+    void protectsCandidateIndexIdentifierFormatsAndPartyOwnership() {
+        UUID partyId = UUID.randomUUID();
+        jdbcTemplate().update(
+                "INSERT INTO supplier_party_match_index (party_id, canonical_inn) VALUES (?, ?)",
+                partyId,
+                "9902000005");
+
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> jdbcTemplate().update(
+                        "INSERT INTO supplier_party_match_index (party_id, canonical_inn) VALUES (?, ?)",
+                        UUID.randomUUID(),
+                        "not-an-inn"));
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> jdbcTemplate().update(
+                        """
+                        INSERT INTO supplier_site_match_index
+                            (site_id, party_id, canonical_inn, canonical_country_code,
+                             canonical_city, canonical_address_line)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        "9902000005",
+                        "RU",
+                        "TEST CITY",
+                        "TEST ADDRESS"));
     }
 
     @Test
@@ -46,6 +109,15 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
         assertThrows(
                 DataIntegrityViolationException.class,
                 () -> insertSourceRecord(importJobId, "record-1", 1));
+    }
+
+    @Test
+    void requiresAnExplicitVersionedNormalizationRuleset() {
+        UUID importJobId = insertImportGraph();
+
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> insertSourceRecord(importJobId, "record-invalid-ruleset", 1, "supplier-source"));
     }
 
     @Test
@@ -106,18 +178,25 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
     }
 
     private static void insertSourceRecord(UUID importJobId, String sourceRecordId, long version) {
+        insertSourceRecord(importJobId, sourceRecordId, version, "supplier-source-v1");
+    }
+
+    private static void insertSourceRecord(
+            UUID importJobId, String sourceRecordId, long version, String normalizationRuleset) {
         jdbcTemplate().update(
                 """
                 INSERT INTO source_record
                     (origin_system, source_record_id, source_version, import_job_id,
-                     ingested_at, original_values, canonical_values, canonical_inn)
-                VALUES (?, ?, ?, ?, ?, '{}'::jsonb, '{}'::jsonb, ?)
+                     ingested_at, normalization_ruleset,
+                     original_values, canonical_values, canonical_inn)
+                VALUES (?, ?, ?, ?, ?, ?, '{}'::jsonb, '{}'::jsonb, ?)
                 """,
                 "SYNTHETIC_ERP",
                 sourceRecordId,
                 version,
                 importJobId,
                 Timestamp.from(Instant.parse("2026-08-28T10:16:00Z")),
+                normalizationRuleset,
                 "9902000005");
     }
 
