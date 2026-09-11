@@ -10,6 +10,7 @@ import io.stewardmesh.masterdata.application.identity.MatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordProjection;
+import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
 import io.stewardmesh.masterdata.application.port.out.StoreGoldenRecordProjection;
 import io.stewardmesh.masterdata.application.port.out.StoreMatchEvaluation;
@@ -28,6 +29,7 @@ import io.stewardmesh.masterdata.domain.identity.MatchOutcome;
 import io.stewardmesh.masterdata.domain.identity.MatchRulesetId;
 import io.stewardmesh.masterdata.domain.identity.MatchSignal;
 import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
+import io.stewardmesh.masterdata.application.identity.IdentityResolutionKey;
 import io.stewardmesh.masterdata.domain.intake.ImportJob;
 import io.stewardmesh.masterdata.domain.intake.ImportJobId;
 import io.stewardmesh.masterdata.domain.intake.IntakeArtifact;
@@ -74,6 +76,9 @@ class GoldenRecordPersistenceIT extends PostgreSqlIntegrationTestSupport {
     private StoreMatchEvaluation matchEvaluationStore;
 
     @Autowired
+    private LoadMatchEvaluation matchEvaluationLoader;
+
+    @Autowired
     private StoreGoldenRecordProjection goldenRecordStore;
 
     @Autowired
@@ -112,6 +117,20 @@ class GoldenRecordPersistenceIT extends PostgreSqlIntegrationTestSupport {
         assertEquals(fixture.source().identity(), legalName.provenance().sourceRecord());
         assertEquals(fixture.association().id(), legalName.provenance().associationId());
         assertEquals(GoldenRecordProjector.RULESET_ID, legalName.provenance().rulesetId());
+    }
+
+    @Test
+    void reconstructsPersistedMatchDecisionsAndFeatureEvidence() {
+        var fixture = persistedFixture("match-read");
+
+        var evaluation = matchEvaluationLoader.find(
+                new IdentityResolutionKey(fixture.source().identity(), MATCH_RULESET)).orElseThrow();
+
+        assertEquals(1, evaluation.partyDecisions().size());
+        assertEquals(1, evaluation.siteDecisions().size());
+        assertEquals(MatchFeatureCode.INN_EXACT,
+                evaluation.partyDecisions().getFirst().features().getFirst().code());
+        assertEquals(INGESTED_AT.plusSeconds(1), evaluation.evaluatedAt());
     }
 
     @Test

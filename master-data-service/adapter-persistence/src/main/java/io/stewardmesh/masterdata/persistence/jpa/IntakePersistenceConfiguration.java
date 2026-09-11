@@ -11,6 +11,7 @@ import io.stewardmesh.masterdata.application.port.out.LoadMatchProfiles;
 import io.stewardmesh.masterdata.application.port.out.StoreMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.LoadImportMatchWork;
 import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluationSummary;
+import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.StoreStewardshipCase;
 import io.stewardmesh.masterdata.application.port.out.StoreGoldenRecordProjection;
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordProjection;
@@ -22,6 +23,7 @@ import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchEvaluationStore;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchProfileLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcImportMatchWorkLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchEvaluationSummaryLoader;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchEvaluationLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcStewardshipCaseStore;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordProjectionStore;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordProjectionLoader;
@@ -110,6 +112,12 @@ public class IntakePersistenceConfiguration {
     StoreMatchEvaluation matchEvaluationStore(
             JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
         return new JdbcMatchEvaluationStore(jdbcTemplate, objectMapper);
+    }
+
+    @Bean
+    LoadMatchEvaluation matchEvaluationLoader(
+            JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
+        return new JdbcMatchEvaluationLoader(jdbcTemplate, objectMapper);
     }
 
     @Bean
