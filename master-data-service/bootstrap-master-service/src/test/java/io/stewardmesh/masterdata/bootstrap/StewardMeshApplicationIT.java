@@ -13,6 +13,7 @@ import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
 import io.stewardmesh.masterdata.application.port.in.AssignSupplierSite;
 import io.stewardmesh.masterdata.application.port.in.GetBusinessUnit;
 import io.stewardmesh.masterdata.application.port.in.ListSiteAssignments;
+import io.stewardmesh.masterdata.application.port.in.ProposeActionPlan;
 import io.stewardmesh.masterdata.application.port.in.SynchronizeBusinessUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,6 +64,9 @@ class StewardMeshApplicationIT {
     @Autowired
     private ListSiteAssignments listSiteAssignments;
 
+    @Autowired
+    private ProposeActionPlan proposeActionPlan;
+
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
@@ -82,5 +86,6 @@ class StewardMeshApplicationIT {
         assertNotNull(getBusinessUnit);
         assertNotNull(assignSupplierSite);
         assertNotNull(listSiteAssignments);
+        assertNotNull(proposeActionPlan);
     }
 }
