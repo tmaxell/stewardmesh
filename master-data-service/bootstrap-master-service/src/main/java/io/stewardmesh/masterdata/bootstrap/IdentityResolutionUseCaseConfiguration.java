@@ -9,9 +9,11 @@ import io.stewardmesh.masterdata.application.identity.IdentityResolutionCandidat
 import io.stewardmesh.masterdata.application.identity.IdentityResolutionStatusService;
 import io.stewardmesh.masterdata.application.identity.MatchExplanationService;
 import io.stewardmesh.masterdata.application.goldenrecord.GoldenRecordReadService;
+import io.stewardmesh.masterdata.application.goldenrecord.ProjectSourceRecordService;
 import io.stewardmesh.masterdata.application.port.in.GenerateMatchCandidates;
 import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
 import io.stewardmesh.masterdata.application.port.in.ScoreMatchCandidates;
+import io.stewardmesh.masterdata.application.port.in.ProjectSourceRecord;
 import io.stewardmesh.masterdata.application.port.in.GetGoldenRecord;
 import io.stewardmesh.masterdata.application.port.in.GetIdentityResolutionStatus;
 import io.stewardmesh.masterdata.application.port.in.GetMatchExplanation;
@@ -27,6 +29,10 @@ import io.stewardmesh.masterdata.application.port.out.StoreStewardshipCase;
 import io.stewardmesh.masterdata.application.port.out.StoreMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordProjection;
+import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordState;
+import io.stewardmesh.masterdata.application.port.out.StoreGoldenRecordProjection;
+import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
+import io.stewardmesh.masterdata.domain.goldenrecord.GoldenRecordProjector;
 import io.stewardmesh.masterdata.domain.identity.SupplierMatchScorer;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -75,6 +81,23 @@ class IdentityResolutionUseCaseConfiguration {
     }
 
     @Bean
+    GoldenRecordProjector goldenRecordProjector() {
+        return new GoldenRecordProjector();
+    }
+
+    @Bean
+    ProjectSourceRecord projectSourceRecord(
+            LoadMatchEvaluation evaluations,
+            LoadSourceRecord sourceRecords,
+            LoadGoldenRecordState states,
+            StoreGoldenRecordProjection projections,
+            ApplicationTransaction transaction,
+            GoldenRecordProjector projector) {
+        return new ProjectSourceRecordService(
+                evaluations, sourceRecords, states, projections, transaction, projector);
+    }
+
+    @Bean
     ScoreMatchCandidates scoreMatchCandidates(
             LoadSourceRecord sourceRecords,
             LoadMatchProfiles profiles,
@@ -93,14 +116,16 @@ class IdentityResolutionUseCaseConfiguration {
             GenerateMatchCandidates generateCandidates,
             ScoreMatchCandidates scoreCandidates,
             LoadMatchEvaluationSummary evaluationSummaries,
-            StoreStewardshipCase stewardshipCases) {
+            StoreStewardshipCase stewardshipCases,
+            ProjectSourceRecord projectSourceRecord) {
         return new RouteSupplierImportMatchesService(
                 importJobs,
                 matchWork,
                 generateCandidates,
                 scoreCandidates,
                 evaluationSummaries,
-                stewardshipCases);
+                stewardshipCases,
+                projectSourceRecord);
     }
 
     @Bean

@@ -79,6 +79,26 @@ class SourceAssociationTest {
                         Optional.empty()));
     }
 
+    @Test
+    void recordsNewEntityCreationWithoutInventingAMatchDecision() {
+        var association = new SourceAssociation(
+                new SourceAssociationId(UUID.fromString("40000000-0000-0000-0000-000000000002")),
+                SOURCE,
+                PARTY_ID,
+                Optional.of(ADDRESS_ID),
+                Optional.of(SITE_ID),
+                AssociationEvidence.newEntity(MATCH_RULESET),
+                Optional.of(AssociationEvidence.newEntity(MATCH_RULESET)),
+                LINKED_AT,
+                Optional.empty());
+
+        assertEquals(AssociationKind.NEW_ENTITY, association.partyEvidence().kind());
+        assertTrue(association.partyEvidence().matchDecision().isEmpty());
+        assertEquals(
+                AssociationKind.NEW_ENTITY,
+                association.siteEvidence().orElseThrow().kind());
+    }
+
     private static SourceAssociation siteAssociation(MatchDecision partyDecision) {
         return new SourceAssociation(
                 new SourceAssociationId(UUID.fromString("40000000-0000-0000-0000-000000000001")),

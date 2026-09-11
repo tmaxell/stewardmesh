@@ -8,6 +8,7 @@ import io.stewardmesh.masterdata.domain.goldenrecord.GoldenAttributeName;
 import io.stewardmesh.masterdata.domain.goldenrecord.GoldenEntityType;
 import io.stewardmesh.masterdata.domain.goldenrecord.SourceAssociation;
 import io.stewardmesh.masterdata.domain.goldenrecord.SourceAssociationId;
+import io.stewardmesh.masterdata.domain.goldenrecord.SupplierAddress;
 import io.stewardmesh.masterdata.persistence.jpa.JpaGoldenRecordMetadataStore;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -27,9 +28,40 @@ public class JdbcGoldenRecordProjectionStore implements StoreGoldenRecordProject
             INSERT INTO source_association
                 (association_id, origin_system, source_record_id, source_version,
                  party_id, address_id, site_id, party_match_ruleset, site_match_ruleset,
-                 linked_at, unlinked_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 linked_at, unlinked_at, party_association_kind, site_association_kind)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT DO NOTHING
+            """;
+    private static final String UPSERT_PARTY_MATCH_INDEX = """
+            INSERT INTO supplier_party_match_index
+                (party_id, canonical_inn, canonical_ogrn, canonical_legal_name)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (party_id) DO UPDATE SET
+                canonical_inn = EXCLUDED.canonical_inn,
+                canonical_ogrn = EXCLUDED.canonical_ogrn,
+                canonical_legal_name = EXCLUDED.canonical_legal_name
+            """;
+    private static final String UPSERT_SITE_MATCH_INDEX = """
+            INSERT INTO supplier_site_match_index
+                (site_id, party_id, canonical_inn, canonical_kpp, canonical_site_code,
+                 canonical_country_code, canonical_postal_code, canonical_region,
+                 canonical_city, canonical_address_line)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (site_id) DO UPDATE SET
+                party_id = EXCLUDED.party_id,
+                canonical_inn = EXCLUDED.canonical_inn,
+                canonical_kpp = EXCLUDED.canonical_kpp,
+                canonical_site_code = EXCLUDED.canonical_site_code,
+                canonical_country_code = EXCLUDED.canonical_country_code,
+                canonical_postal_code = EXCLUDED.canonical_postal_code,
+                canonical_region = EXCLUDED.canonical_region,
+                canonical_city = EXCLUDED.canonical_city,
+                canonical_address_line = EXCLUDED.canonical_address_line
+            """;
+    private static final String UPDATE_SITE_PARTY_IDENTIFIER = """
+            UPDATE supplier_site_match_index
+            SET canonical_inn = ?
+            WHERE party_id = ?
             """;
     private static final String INSERT_VERSION = """
             INSERT INTO golden_record_version
@@ -100,6 +132,7 @@ public class JdbcGoldenRecordProjectionStore implements StoreGoldenRecordProject
                     site.projectedAt(),
                     site.attributes(),
                     site.sourceAssociations())));
+            maintainMatchIndexes(projection);
         } catch (DataAccessException | IllegalArgumentException exception) {
             throw new GoldenRecordWriteException("golden record projection could not be persisted", exception);
         }
@@ -117,15 +150,21 @@ public class JdbcGoldenRecordProjectionStore implements StoreGoldenRecordProject
                     statement.setObject(5, association.partyId().value());
                     setUuid(statement, 6, association.addressId().map(id -> id.value()).orElse(null));
                     setUuid(statement, 7, association.siteId().map(id -> id.value()).orElse(null));
-                    statement.setString(8, association.partyDecision().rulesetId().value());
+                    statement.setString(8, association.partyEvidence().rulesetId().value());
                     statement.setString(
                             9,
-                            association.siteDecision()
-                                    .map(decision -> decision.rulesetId().value())
+                            association.siteEvidence()
+                                    .map(evidence -> evidence.rulesetId().value())
                                     .orElse(null));
                     statement.setTimestamp(10, Timestamp.from(association.linkedAt()));
                     statement.setTimestamp(
                             11, association.unlinkedAt().map(Timestamp::from).orElse(null));
+                    statement.setString(12, association.partyEvidence().kind().name());
+                    statement.setString(
+                            13,
+                            association.siteEvidence()
+                                    .map(evidence -> evidence.kind().name())
+                                    .orElse(null));
                     return statement;
                 });
 
@@ -133,7 +172,7 @@ public class JdbcGoldenRecordProjectionStore implements StoreGoldenRecordProject
                 """
                 SELECT association_id, origin_system, source_record_id, source_version,
                        party_id, address_id, site_id, party_match_ruleset, site_match_ruleset,
-                       linked_at, unlinked_at
+                       linked_at, unlinked_at, party_association_kind, site_association_kind
                 FROM source_association WHERE association_id = ?
                 """,
                 (resultSet, rowNumber) -> new AssociationRow(
@@ -149,7 +188,9 @@ public class JdbcGoldenRecordProjectionStore implements StoreGoldenRecordProject
                         resultSet.getTimestamp("linked_at").toInstant(),
                         resultSet.getTimestamp("unlinked_at") == null
                                 ? null
-                                : resultSet.getTimestamp("unlinked_at").toInstant()),
+                                : resultSet.getTimestamp("unlinked_at").toInstant(),
+                        resultSet.getString("party_association_kind"),
+                        resultSet.getString("site_association_kind")),
                 association.id().value());
         if (!stored.sameImmutableValues(association)) {
             throw new IllegalArgumentException("association identity already contains different evidence");
@@ -165,6 +206,45 @@ public class JdbcGoldenRecordProjectionStore implements StoreGoldenRecordProject
         } else if (association.unlinkedAt().isEmpty() && stored.unlinkedAt() != null) {
             throw new IllegalArgumentException("an ended source association cannot become active again");
         }
+    }
+
+    private void maintainMatchIndexes(GoldenRecordProjection projection) {
+        var party = projection.party();
+        jdbcTemplate.update(
+                UPSERT_PARTY_MATCH_INDEX,
+                party.id().value(),
+                attribute(party.attributes(), GoldenAttributeName.INN),
+                attribute(party.attributes(), GoldenAttributeName.OGRN),
+                attribute(party.attributes(), GoldenAttributeName.LEGAL_NAME));
+        jdbcTemplate.update(
+                UPDATE_SITE_PARTY_IDENTIFIER,
+                attribute(party.attributes(), GoldenAttributeName.INN),
+                party.id().value());
+        Map<UUID, SupplierAddress> addresses = projection.addresses().stream()
+                .collect(java.util.stream.Collectors.toMap(address -> address.id().value(), address -> address));
+        projection.sites().forEach(site -> {
+            SupplierAddress address = Objects.requireNonNull(
+                    addresses.get(site.addressId().value()),
+                    "a projected site requires its projected address for match indexing");
+            jdbcTemplate.update(
+                    UPSERT_SITE_MATCH_INDEX,
+                    site.id().value(),
+                    party.id().value(),
+                    attribute(party.attributes(), GoldenAttributeName.INN),
+                    attribute(site.attributes(), GoldenAttributeName.KPP),
+                    attribute(site.attributes(), GoldenAttributeName.SITE_CODE),
+                    attribute(address.attributes(), GoldenAttributeName.COUNTRY_CODE),
+                    attribute(address.attributes(), GoldenAttributeName.POSTAL_CODE),
+                    attribute(address.attributes(), GoldenAttributeName.REGION),
+                    attribute(address.attributes(), GoldenAttributeName.CITY),
+                    attribute(address.attributes(), GoldenAttributeName.ADDRESS_LINE));
+        });
+    }
+
+    private static String attribute(
+            Map<GoldenAttributeName, GoldenAttribute> attributes, GoldenAttributeName name) {
+        GoldenAttribute attribute = attributes.get(name);
+        return attribute == null ? null : attribute.value();
     }
 
     private void insertSnapshot(Snapshot snapshot) {
@@ -239,7 +319,9 @@ public class JdbcGoldenRecordProjectionStore implements StoreGoldenRecordProject
             String partyRuleset,
             String siteRuleset,
             Instant linkedAt,
-            Instant unlinkedAt) {
+            Instant unlinkedAt,
+            String partyAssociationKind,
+            String siteAssociationKind) {
 
         boolean sameImmutableValues(SourceAssociation association) {
             var source = association.sourceRecord();
@@ -251,11 +333,17 @@ public class JdbcGoldenRecordProjectionStore implements StoreGoldenRecordProject
                     && Objects.equals(
                             addressId, association.addressId().map(id -> id.value()).orElse(null))
                     && Objects.equals(siteId, association.siteId().map(id -> id.value()).orElse(null))
-                    && partyRuleset.equals(association.partyDecision().rulesetId().value())
+                    && partyRuleset.equals(association.partyEvidence().rulesetId().value())
                     && Objects.equals(
                             siteRuleset,
-                            association.siteDecision()
-                                    .map(decision -> decision.rulesetId().value())
+                            association.siteEvidence()
+                                    .map(evidence -> evidence.rulesetId().value())
+                                    .orElse(null))
+                    && partyAssociationKind.equals(association.partyEvidence().kind().name())
+                    && Objects.equals(
+                            siteAssociationKind,
+                            association.siteEvidence()
+                                    .map(evidence -> evidence.kind().name())
                                     .orElse(null))
                     && linkedAt.equals(association.linkedAt());
         }

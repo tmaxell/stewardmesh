@@ -3,6 +3,7 @@ package io.stewardmesh.masterdata.application.identity;
 import io.stewardmesh.masterdata.application.intake.SupplierImportNotFoundException;
 import io.stewardmesh.masterdata.application.port.in.GenerateMatchCandidates;
 import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
+import io.stewardmesh.masterdata.application.port.in.ProjectSourceRecord;
 import io.stewardmesh.masterdata.application.port.in.ScoreMatchCandidates;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
 import io.stewardmesh.masterdata.application.port.out.LoadImportMatchWork;
@@ -26,6 +27,7 @@ public final class RouteSupplierImportMatchesService implements RouteSupplierImp
     private final ScoreMatchCandidates scoreCandidates;
     private final LoadMatchEvaluationSummary evaluationSummaries;
     private final StoreStewardshipCase stewardshipCases;
+    private final ProjectSourceRecord projectSourceRecord;
 
     public RouteSupplierImportMatchesService(
             ImportJobRepository importJobs,
@@ -33,7 +35,8 @@ public final class RouteSupplierImportMatchesService implements RouteSupplierImp
             GenerateMatchCandidates generateCandidates,
             ScoreMatchCandidates scoreCandidates,
             LoadMatchEvaluationSummary evaluationSummaries,
-            StoreStewardshipCase stewardshipCases) {
+            StoreStewardshipCase stewardshipCases,
+            ProjectSourceRecord projectSourceRecord) {
         this.importJobs = Objects.requireNonNull(importJobs, "importJobs must not be null");
         this.matchWork = Objects.requireNonNull(matchWork, "matchWork must not be null");
         this.generateCandidates =
@@ -44,6 +47,25 @@ public final class RouteSupplierImportMatchesService implements RouteSupplierImp
                 Objects.requireNonNull(evaluationSummaries, "evaluationSummaries must not be null");
         this.stewardshipCases =
                 Objects.requireNonNull(stewardshipCases, "stewardshipCases must not be null");
+        this.projectSourceRecord =
+                Objects.requireNonNull(projectSourceRecord, "projectSourceRecord must not be null");
+    }
+
+    public RouteSupplierImportMatchesService(
+            ImportJobRepository importJobs,
+            LoadImportMatchWork matchWork,
+            GenerateMatchCandidates generateCandidates,
+            ScoreMatchCandidates scoreCandidates,
+            LoadMatchEvaluationSummary evaluationSummaries,
+            StoreStewardshipCase stewardshipCases) {
+        this(
+                importJobs,
+                matchWork,
+                generateCandidates,
+                scoreCandidates,
+                evaluationSummaries,
+                stewardshipCases,
+                ignored -> {});
     }
 
     @Override
@@ -85,6 +107,9 @@ public final class RouteSupplierImportMatchesService implements RouteSupplierImp
                                 : StewardshipCaseReason.AMBIGUOUS_MATCH,
                         summary.evaluatedAt()));
                 reviewRequired = true;
+            } else {
+                projectSourceRecord.execute(new IdentityResolutionKey(
+                        item.sourceRecordIdentity(), SupplierMatchScorer.RULESET.id()));
             }
         }
 

@@ -2,7 +2,6 @@ package io.stewardmesh.masterdata.domain.goldenrecord;
 
 import io.stewardmesh.masterdata.domain.identity.MatchDecision;
 import io.stewardmesh.masterdata.domain.identity.MatchEntityType;
-import io.stewardmesh.masterdata.domain.identity.MatchOutcome;
 import io.stewardmesh.masterdata.domain.intake.SourceRecordIdentity;
 import io.stewardmesh.masterdata.domain.model.SupplierAddressId;
 import io.stewardmesh.masterdata.domain.model.SupplierPartyId;
@@ -21,8 +20,8 @@ public record SourceAssociation(
         SupplierPartyId partyId,
         Optional<SupplierAddressId> addressId,
         Optional<SupplierSiteId> siteId,
-        MatchDecision partyDecision,
-        Optional<MatchDecision> siteDecision,
+        AssociationEvidence partyEvidence,
+        Optional<AssociationEvidence> siteEvidence,
         Instant linkedAt,
         Optional<Instant> unlinkedAt) {
 
@@ -32,20 +31,21 @@ public record SourceAssociation(
         Objects.requireNonNull(partyId, "partyId must not be null");
         addressId = Objects.requireNonNull(addressId, "addressId must not be null");
         siteId = Objects.requireNonNull(siteId, "siteId must not be null");
-        Objects.requireNonNull(partyDecision, "partyDecision must not be null");
-        siteDecision = Objects.requireNonNull(siteDecision, "siteDecision must not be null");
+        Objects.requireNonNull(partyEvidence, "partyEvidence must not be null");
+        siteEvidence = Objects.requireNonNull(siteEvidence, "siteEvidence must not be null");
         Objects.requireNonNull(linkedAt, "linkedAt must not be null");
         unlinkedAt = Objects.requireNonNull(unlinkedAt, "unlinkedAt must not be null");
 
-        requireAutoLink(partyDecision, MatchEntityType.PARTY, partyId.value());
+        partyEvidence.requireTarget(MatchEntityType.PARTY, partyId.value());
         if (siteId.isPresent()) {
-            if (addressId.isEmpty() || siteDecision.isEmpty()) {
+            if (addressId.isEmpty() || siteEvidence.isEmpty()) {
                 throw new IllegalArgumentException(
-                        "a site association requires an address and site match evidence");
+                        "a site association requires an address and site evidence");
             }
-            requireAutoLink(siteDecision.orElseThrow(), MatchEntityType.SITE, siteId.orElseThrow().value());
-        } else if (siteDecision.isPresent()) {
-            throw new IllegalArgumentException("site match evidence requires a site association");
+            siteEvidence.orElseThrow().requireTarget(
+                    MatchEntityType.SITE, siteId.orElseThrow().value());
+        } else if (siteEvidence.isPresent()) {
+            throw new IllegalArgumentException("site evidence requires a site association");
         }
         unlinkedAt.ifPresent(endedAt -> {
             if (!endedAt.isAfter(linkedAt)) {
@@ -54,8 +54,39 @@ public record SourceAssociation(
         });
     }
 
+    public SourceAssociation(
+            SourceAssociationId id,
+            SourceRecordIdentity sourceRecord,
+            SupplierPartyId partyId,
+            Optional<SupplierAddressId> addressId,
+            Optional<SupplierSiteId> siteId,
+            MatchDecision partyDecision,
+            Optional<MatchDecision> siteDecision,
+            Instant linkedAt,
+            Optional<Instant> unlinkedAt) {
+        this(
+                id,
+                sourceRecord,
+                partyId,
+                addressId,
+                siteId,
+                AssociationEvidence.autoLinked(partyDecision),
+                siteDecision.map(AssociationEvidence::autoLinked),
+                linkedAt,
+                unlinkedAt);
+    }
+
     public boolean active() {
         return unlinkedAt.isEmpty();
+    }
+
+    public MatchDecision partyDecision() {
+        return partyEvidence.matchDecision().orElseThrow(
+                () -> new IllegalStateException("new-entity association has no party match decision"));
+    }
+
+    public Optional<MatchDecision> siteDecision() {
+        return siteEvidence.flatMap(AssociationEvidence::matchDecision);
     }
 
     public SourceAssociation unlink(Instant endedAt) {
@@ -69,19 +100,10 @@ public record SourceAssociation(
                 partyId,
                 addressId,
                 siteId,
-                partyDecision,
-                siteDecision,
+                partyEvidence,
+                siteEvidence,
                 linkedAt,
                 Optional.of(endedAt));
     }
 
-    private static void requireAutoLink(
-            MatchDecision decision, MatchEntityType entityType, java.util.UUID targetId) {
-        if (decision.entityType() != entityType || !decision.candidateId().equals(targetId)) {
-            throw new IllegalArgumentException("match evidence does not identify the associated target");
-        }
-        if (decision.outcome() != MatchOutcome.AUTO_LINK || decision.hardConflict()) {
-            throw new IllegalArgumentException("only a conflict-free AUTO_LINK decision can be associated");
-        }
-    }
 }

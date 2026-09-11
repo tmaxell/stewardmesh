@@ -16,9 +16,13 @@ import io.stewardmesh.masterdata.application.intake.StartSupplierImportResult;
 import io.stewardmesh.masterdata.application.intake.SupplierImportReport;
 import io.stewardmesh.masterdata.application.intake.SupplierImportReportQuery;
 import io.stewardmesh.masterdata.application.intake.SupplierImportStatus;
+import io.stewardmesh.masterdata.application.identity.CandidateBlockingPolicy;
+import io.stewardmesh.masterdata.application.identity.RouteSupplierImportMatchesCommand;
+import io.stewardmesh.masterdata.application.identity.RouteSupplierImportMatchesResult;
 import io.stewardmesh.masterdata.application.port.in.GetSupplierImportReport;
 import io.stewardmesh.masterdata.application.port.in.GetSupplierImportStatus;
 import io.stewardmesh.masterdata.application.port.in.ProcessSupplierImport;
+import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
 import io.stewardmesh.masterdata.application.port.in.StartSupplierImport;
 import io.stewardmesh.masterdata.domain.intake.ImportCounters;
 import io.stewardmesh.masterdata.domain.intake.ImportJobId;
@@ -64,6 +68,9 @@ class SupplierImportControllerTest {
     private ProcessStub processSupplierImport;
 
     @Autowired
+    private RouteStub routeSupplierImportMatches;
+
+    @Autowired
     private StatusStub getSupplierImportStatus;
 
     @Autowired
@@ -74,6 +81,7 @@ class SupplierImportControllerTest {
         startSupplierImport.result = null;
         startSupplierImport.failure = null;
         processSupplierImport.result = null;
+        routeSupplierImportMatches.result = null;
         getSupplierImportStatus.result = null;
         getSupplierImportReport.result = null;
     }
@@ -96,6 +104,8 @@ class SupplierImportControllerTest {
                 IMPORT_ID,
                 ImportStatus.VALIDATED,
                 new ImportCounters(3, 2, 1, 1, 1));
+        routeSupplierImportMatches.result =
+                new RouteSupplierImportMatchesResult(IMPORT_ID, ImportStatus.MATCHED);
 
         mockMvc.perform(validUpload()
                         .header(SupplierImportController.CORRELATION_HEADER, "contract-test-1")
@@ -105,7 +115,7 @@ class SupplierImportControllerTest {
                 .andExpect(header().string(
                         SupplierImportController.CORRELATION_HEADER, "contract-test-1"))
                 .andExpect(jsonPath("$.importId").value(IMPORT_ID.value().toString()))
-                .andExpect(jsonPath("$.status").value("VALIDATED"))
+                .andExpect(jsonPath("$.status").value("MATCHED"))
                 .andExpect(jsonPath("$.replayed").value(false));
     }
 
@@ -240,6 +250,11 @@ class SupplierImportControllerTest {
         }
 
         @Bean
+        CandidateBlockingPolicy candidateBlockingPolicy() {
+            return CandidateBlockingPolicy.conservativeDefault();
+        }
+
+        @Bean
         MeterRegistry meterRegistry() {
             return new SimpleMeterRegistry();
         }
@@ -252,6 +267,11 @@ class SupplierImportControllerTest {
         @Bean
         ProcessStub processSupplierImport() {
             return new ProcessStub();
+        }
+
+        @Bean
+        RouteStub routeSupplierImportMatches() {
+            return new RouteStub();
         }
 
         @Bean
@@ -292,6 +312,16 @@ class SupplierImportControllerTest {
 
         @Override
         public ProcessSupplierImportResult execute(ImportJobId command) {
+            return result;
+        }
+    }
+
+    static final class RouteStub implements RouteSupplierImportMatches {
+
+        private RouteSupplierImportMatchesResult result;
+
+        @Override
+        public RouteSupplierImportMatchesResult execute(RouteSupplierImportMatchesCommand command) {
             return result;
         }
     }
