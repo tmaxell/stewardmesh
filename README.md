@@ -60,25 +60,17 @@ Java 25 is required. Maven is supplied by the repository wrapper.
 
 ```bash
 ./scripts/verify-phase-2.sh
-docker compose --env-file .env -f deploy/local/compose.yaml up -d --wait
-java -jar master-data-service/bootstrap-master-service/target/bootstrap-master-service-0.1.0-SNAPSHOT.jar
+./scripts/run-local.sh
 ```
 
 At startup, the service connects to PostgreSQL, applies the Flyway intake schema, validates its JPA mappings and configures immutable intake storage plus bounded supplier-workbook parsing. The supplier intake API is published under `/api/v1/supplier-imports`; its OpenAPI document is available at `/v3/api-docs`.
 
-The API is an OAuth2 resource server. Configure `STEWARDMESH_JWK_SET_URI` for the JWT issuer. Upload requires `supplier-import.write`; status and report reads require `supplier-import.read`. The default local URI is only a development boundary and does not embed credentials or keys.
+The API is an OAuth2 resource server. Configure `STEWARDMESH_JWK_SET_URI` for the JWT issuer. Upload requires `supplier-import.write`; status and report reads require `supplier-import.read`. The local stack includes a development-only Keycloak realm and service account with all three API scopes; its placeholder credentials must never be reused outside a workstation.
 
-The disposable E2E proof supplies synthetic authenticated principals without requiring a local identity provider. Running the service itself requires a reachable JWK set URI and appropriately scoped JWTs.
-
-With a scoped development token, the synthetic fixture can be submitted as follows:
+With the service running, exercise token acquisition, upload and idempotent replay in a second terminal:
 
 ```bash
-curl --fail-with-body \
-  -H "Authorization: Bearer ${TOKEN}" \
-  -H "Idempotency-Key: synthetic-demo-1" \
-  -F "sourceSystem=SYNTHETIC_DEMO" \
-  -F "workbook=@test-fixtures/intake/supplier-workbook-v1-valid.xlsx;type=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" \
-  http://localhost:8080/api/v1/supplier-imports
+./scripts/smoke-local.sh
 ```
 
 Use the returned `statusUrl` and `reportUrl` with a token carrying `supplier-import.read`. Identity-resolution and golden-record reads require `identity-resolution.read`. The versioned response and problem schemas live in the [supplier-import contract](contracts/openapi/supplier-imports-v1.yaml) and [identity-resolution contract](contracts/openapi/identity-resolution-v1.yaml).
@@ -94,7 +86,7 @@ The Phase 2 E2E proof starts a disposable PostgreSQL instance and exercises the 
   -Dfailsafe.failIfNoSpecifiedTests=false
 ```
 
-Run `./scripts/verify-phase-2.sh` for the complete repository gate, including the full test suite, aggregate coverage, Compose validation and Git hygiene checks. Java 25 and Docker are required; all demo identities are generated synthetic fixtures.
+Run `./scripts/verify-phase-2.sh` for the complete repository gate, including both black-box E2E flows, aggregate coverage, Compose validation and Git hygiene checks. The same post-build gates are mandatory in pull-request CI. Java 25 and Docker are required; all demo identities are generated synthetic fixtures.
 
 Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes. Matching metric labels use only bounded entity/outcome/conflict dimensions. Console logs use structured JSON and never include workbook rows or supplier identifiers.
 
@@ -105,4 +97,4 @@ cp .env.example .env
 docker compose --env-file .env -f deploy/local/compose.yaml up -d --wait
 ```
 
-This starts PostgreSQL plus LocalStack with the development S3 bucket and SQS queues. See [the local environment guide](deploy/local/README.md).
+This starts Keycloak, PostgreSQL and LocalStack with the development S3 bucket and SQS queues. See [the local environment guide](deploy/local/README.md).

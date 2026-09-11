@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -37,6 +38,7 @@ import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -168,6 +170,33 @@ class S3IntakeArtifactStorageIT {
         try (InputStream input = storage.load(artifact.id()).openStream()) {
             assertThrows(IOException.class, input::readAllBytes);
         }
+    }
+
+    @Test
+    void wrapsSdkClientFailuresAsStableStorageFailures() {
+        S3Client failingClient = (S3Client) Proxy.newProxyInstance(
+                S3Client.class.getClassLoader(),
+                new Class<?>[] {S3Client.class},
+                (proxy, method, arguments) -> {
+                    if (method.getName().equals("serviceName")) {
+                        return "s3";
+                    }
+                    if (method.getName().equals("close")) {
+                        return null;
+                    }
+                    throw SdkClientException.create("synthetic client failure");
+                });
+        var failingStorage = new S3IntakeArtifactStorage(
+                failingClient,
+                BUCKET,
+                new SequenceIdentityGenerator(),
+                repository,
+                ImportPolicy.supplierWorkbookV1(),
+                CLOCK);
+
+        assertThrows(
+                ArtifactStorageException.class,
+                () -> failingStorage.store(new ByteArrayContent(WORKBOOK, WORKBOOK.length)));
     }
 
     private record ByteArrayContent(byte[] bytes, long declaredSize) implements IntakeContent {

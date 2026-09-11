@@ -8,7 +8,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import io.stewardmesh.masterdata.application.goldenrecord.GoldenRecordProjection;
 import io.stewardmesh.masterdata.application.identity.IdentityResolutionKey;
 import io.stewardmesh.masterdata.application.identity.IdentityResolutionStatus;
 import io.stewardmesh.masterdata.application.identity.RouteSupplierImportMatchesCommand;
@@ -16,17 +15,7 @@ import io.stewardmesh.masterdata.application.port.in.GetIdentityResolutionStatus
 import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
-import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
-import io.stewardmesh.masterdata.application.port.out.StoreGoldenRecordProjection;
-import io.stewardmesh.masterdata.domain.goldenrecord.GoldenAttributeName;
-import io.stewardmesh.masterdata.domain.goldenrecord.GoldenRecordProjector;
-import io.stewardmesh.masterdata.domain.goldenrecord.GoldenRecordVersion;
-import io.stewardmesh.masterdata.domain.goldenrecord.GoldenSourceAssertion;
-import io.stewardmesh.masterdata.domain.goldenrecord.SourceAssociation;
-import io.stewardmesh.masterdata.domain.goldenrecord.SourceAssociationId;
-import io.stewardmesh.masterdata.domain.goldenrecord.SourcePriority;
-import io.stewardmesh.masterdata.domain.identity.MatchOutcome;
 import io.stewardmesh.masterdata.domain.identity.SupplierMatchScorer;
 import io.stewardmesh.masterdata.domain.identity.SupplierSourceNormalizer;
 import io.stewardmesh.masterdata.domain.intake.ImportCounters;
@@ -38,15 +27,12 @@ import io.stewardmesh.masterdata.domain.intake.IntakeArtifactId;
 import io.stewardmesh.masterdata.domain.intake.SourceRecord;
 import io.stewardmesh.masterdata.domain.intake.SourceRecordIdentity;
 import io.stewardmesh.masterdata.domain.intake.SourceSystemRef;
-import io.stewardmesh.masterdata.domain.model.SupplierAddressId;
 import io.stewardmesh.masterdata.domain.model.SupplierPartyId;
 import io.stewardmesh.masterdata.domain.model.SupplierSiteId;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,12 +79,6 @@ class IdentityResolutionEndToEndIT {
 
     @Autowired
     private GetIdentityResolutionStatus statuses;
-
-    @Autowired
-    private LoadMatchEvaluation evaluations;
-
-    @Autowired
-    private StoreGoldenRecordProjection goldenRecords;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -161,7 +141,6 @@ class IdentityResolutionEndToEndIT {
         assertEquals(decisionsBefore, count("SELECT COUNT(*) FROM match_decision"));
         assertEquals(reviewsBefore, count("SELECT COUNT(*) FROM stewardship_case"));
 
-        projectExactGoldenRecord(exact);
         mockMvc.perform(get(
                                 "/api/v1/identity-resolution/sources/{origin}/{record}/versions/{version}",
                                 exact.source().identity().originSystem().value(),
@@ -185,38 +164,6 @@ class IdentityResolutionEndToEndIT {
         assertTrue(meters.get("stewardmesh.matching.decisions")
                 .tag("entity", "party").tag("outcome", "review")
                 .tag("hard_conflict", "true").counter().count() >= 1);
-    }
-
-    private void projectExactGoldenRecord(Scenario exact) {
-        var evaluation = evaluations.find(new IdentityResolutionKey(
-                exact.source().identity(), SupplierMatchScorer.RULESET.id())).orElseThrow();
-        var partyDecision = evaluation.partyDecisions().stream()
-                .filter(decision -> decision.candidateId().equals(EXACT_PARTY.value()))
-                .filter(decision -> decision.outcome() == MatchOutcome.AUTO_LINK)
-                .findFirst().orElseThrow();
-        var siteDecision = evaluation.siteDecisions().stream()
-                .filter(decision -> decision.candidateId().equals(EXACT_SITE.value()))
-                .filter(decision -> decision.outcome() == MatchOutcome.AUTO_LINK)
-                .findFirst().orElseThrow();
-        var addressId = new SupplierAddressId(
-                UUID.fromString("30000000-0000-0000-0000-000000000001"));
-        var association = new SourceAssociation(
-                new SourceAssociationId(UUID.fromString("40000000-0000-0000-0000-000000000001")),
-                exact.source().identity(), EXACT_PARTY, Optional.of(addressId), Optional.of(EXACT_SITE),
-                partyDecision, Optional.of(siteDecision), INGESTED_AT.plusSeconds(60), Optional.empty());
-        var assertion = new GoldenSourceAssertion(
-                exact.source().identity(), exact.source().ingestedAt(), new SourcePriority(100),
-                association, goldenValues(exact.source().canonicalValues()));
-        var projector = new GoldenRecordProjector();
-        var version = new GoldenRecordVersion(1);
-        var projectedAt = INGESTED_AT.plusSeconds(120);
-        goldenRecords.save(new GoldenRecordProjection(
-                projector.projectParty(EXACT_PARTY, version, projectedAt, List.of(assertion)),
-                List.of(projector.projectAddress(
-                        addressId, EXACT_PARTY, version, projectedAt, List.of(assertion))),
-                List.of(projector.projectSite(
-                        EXACT_SITE, EXACT_PARTY, addressId, version, projectedAt, List.of(assertion))),
-                List.of(association)));
     }
 
     private Scenario scenario(int sequence, String name, Map<String, String> canonicalValues) {
@@ -293,16 +240,6 @@ class IdentityResolutionEndToEndIT {
         values.put("city", "TEST CITY");
         values.put("address_line", addressLine);
         return Map.copyOf(values);
-    }
-
-    private static Map<GoldenAttributeName, String> goldenValues(Map<String, String> values) {
-        var attributes = new EnumMap<GoldenAttributeName, String>(GoldenAttributeName.class);
-        for (var name : GoldenAttributeName.values()) {
-            if (values.containsKey(name.sourceField())) {
-                attributes.put(name, values.get(name.sourceField()));
-            }
-        }
-        return attributes;
     }
 
     private static RequestPostProcessor identityReadJwt() {

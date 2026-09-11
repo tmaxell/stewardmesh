@@ -1,0 +1,39 @@
+{
+  "realm": "stewardmesh",
+  "enabled": true,
+  "clientScopes": [
+    {
+      "name": "supplier-import.write",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" }
+    },
+    {
+      "name": "supplier-import.read",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" }
+    },
+    {
+      "name": "identity-resolution.read",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "stewardmesh-local",
+      "name": "StewardMesh local smoke client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "stewardmesh-local-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "publicClient": false,
+      "defaultClientScopes": [
+        "supplier-import.write",
+        "supplier-import.read",
+        "identity-resolution.read"
+      ]
+    }
+  ]
+}

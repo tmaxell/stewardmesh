@@ -10,6 +10,7 @@ import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.health.contributor.HealthIndicator;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
@@ -59,5 +60,11 @@ class IntakeStorageConfiguration {
             Clock clock) {
         return new S3IntakeArtifactStorage(
                 s3, bucket, identityGenerator, artifactRepository, importPolicy, clock);
+    }
+
+    @Bean("intakeStorageHealthIndicator")
+    HealthIndicator intakeStorageHealthIndicator(
+            S3Client s3, @Value("${stewardmesh.intake-storage.bucket}") String bucket) {
+        return new IntakeStorageHealthIndicator(s3, bucket);
     }
 }

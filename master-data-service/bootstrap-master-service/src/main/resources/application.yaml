@@ -21,7 +21,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${STEWARDMESH_JWK_SET_URI:http://localhost:8081/oauth2/jwks}
+          jwk-set-uri: ${STEWARDMESH_JWK_SET_URI:http://localhost:8081/realms/stewardmesh/protocol/openid-connect/certs}
 
 springdoc:
   api-docs:
@@ -36,6 +36,9 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db,intakeStorage
 
 logging:
   structured:
