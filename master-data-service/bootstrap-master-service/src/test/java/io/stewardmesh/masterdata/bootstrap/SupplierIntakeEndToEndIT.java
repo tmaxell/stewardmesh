@@ -112,7 +112,7 @@ class SupplierIntakeEndToEndIT {
 
         MvcResult first = mockMvc.perform(upload("E2E_VALID", "valid-1", workbook).with(writeJwt()))
                 .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.status").value("VALIDATED"))
+                .andExpect(jsonPath("$.status").value("MATCHED"))
                 .andExpect(jsonPath("$.replayed").value(false))
                 .andReturn();
         Duration elapsed = Duration.ofNanos(System.nanoTime() - startedAt);
@@ -124,7 +124,7 @@ class SupplierIntakeEndToEndIT {
                 .andExpect(jsonPath("$.replayed").value(true));
         mockMvc.perform(get("/api/v1/supplier-imports/{id}", importId).with(readJwt()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("VALIDATED"))
+                .andExpect(jsonPath("$.status").value("MATCHED"))
                 .andExpect(jsonPath("$.counters.totalRows").value(3))
                 .andExpect(jsonPath("$.counters.acceptedRows").value(3))
                 .andExpect(jsonPath("$.counters.rejectedRows").value(0));
@@ -135,6 +135,15 @@ class SupplierIntakeEndToEndIT {
         assertTrue(elapsed.compareTo(Duration.ofSeconds(15)) < 0, () -> "intake took " + elapsed);
         assertEquals(1, count("SELECT COUNT(*) FROM import_job WHERE source_system = ?", "E2E_VALID"));
         assertEquals(3, count("SELECT COUNT(*) FROM source_record WHERE import_job_id = ?", uuid(importId)));
+        assertEquals(3, count(
+                "SELECT COUNT(*) FROM match_evaluation WHERE (origin_system, source_record_id, source_version) "
+                        + "IN (SELECT origin_system, source_record_id, source_version FROM source_record WHERE import_job_id = ?)",
+                uuid(importId)));
+        assertEquals(3, count(
+                "SELECT COUNT(*) FROM source_association WHERE (origin_system, source_record_id, source_version) "
+                        + "IN (SELECT origin_system, source_record_id, source_version FROM source_record WHERE import_job_id = ?)",
+                uuid(importId)));
+        assertTrue(count("SELECT COUNT(*) FROM supplier_party_match_index") > 0);
         String storageKey = jdbcTemplate.queryForObject(
                 "SELECT a.storage_key FROM intake_artifact a JOIN import_job j ON j.artifact_id = a.id "
                         + "WHERE j.id = ?",
@@ -167,7 +176,7 @@ class SupplierIntakeEndToEndIT {
                                 fixture("supplier-workbook-v1-mixed-invalid.xlsx"))
                         .with(writeJwt()))
                 .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.status").value("VALIDATED"))
+                .andExpect(jsonPath("$.status").value("MATCHED"))
                 .andReturn();
         String importId = JsonPath.read(upload.getResponse().getContentAsString(), "$.importId");
 
@@ -198,7 +207,7 @@ class SupplierIntakeEndToEndIT {
         byte[] workbook = fixture("supplier-workbook-v1-valid.xlsx");
         mockMvc.perform(upload("E2E_DUPLICATE", "duplicate-1", workbook).with(writeJwt()))
                 .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.status").value("VALIDATED"));
+                .andExpect(jsonPath("$.status").value("MATCHED"));
 
         MvcResult duplicate = mockMvc.perform(
                         upload("E2E_DUPLICATE", "duplicate-2", workbook).with(writeJwt()))
@@ -279,6 +288,10 @@ class SupplierIntakeEndToEndIT {
 
     private int count(String sql, Object argument) {
         return jdbcTemplate.queryForObject(sql, Integer.class, argument);
+    }
+
+    private int count(String sql) {
+        return jdbcTemplate.queryForObject(sql, Integer.class);
     }
 
     private static MockMultipartHttpServletRequestBuilder upload(

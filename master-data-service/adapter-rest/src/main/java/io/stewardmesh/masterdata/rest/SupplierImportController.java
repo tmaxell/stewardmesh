@@ -7,9 +7,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.stewardmesh.masterdata.application.intake.ProcessSupplierImportResult;
 import io.stewardmesh.masterdata.application.intake.StartSupplierImportCommand;
 import io.stewardmesh.masterdata.application.intake.SupplierImportReportQuery;
+import io.stewardmesh.masterdata.application.identity.CandidateBlockingPolicy;
+import io.stewardmesh.masterdata.application.identity.RouteSupplierImportMatchesCommand;
 import io.stewardmesh.masterdata.application.port.in.GetSupplierImportReport;
 import io.stewardmesh.masterdata.application.port.in.GetSupplierImportStatus;
 import io.stewardmesh.masterdata.application.port.in.ProcessSupplierImport;
+import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
 import io.stewardmesh.masterdata.application.port.in.StartSupplierImport;
 import io.stewardmesh.masterdata.domain.intake.IdempotencyKey;
 import io.stewardmesh.masterdata.domain.intake.ImportJobId;
@@ -51,23 +54,29 @@ public class SupplierImportController {
 
     private final StartSupplierImport startSupplierImport;
     private final ProcessSupplierImport processSupplierImport;
+    private final RouteSupplierImportMatches routeSupplierImportMatches;
     private final GetSupplierImportStatus getSupplierImportStatus;
     private final GetSupplierImportReport getSupplierImportReport;
     private final ImportPolicy importPolicy;
+    private final CandidateBlockingPolicy candidateBlockingPolicy;
     private final IntakeApiTelemetry telemetry;
 
     public SupplierImportController(
             StartSupplierImport startSupplierImport,
             ProcessSupplierImport processSupplierImport,
+            RouteSupplierImportMatches routeSupplierImportMatches,
             GetSupplierImportStatus getSupplierImportStatus,
             GetSupplierImportReport getSupplierImportReport,
             ImportPolicy importPolicy,
+            CandidateBlockingPolicy candidateBlockingPolicy,
             IntakeApiTelemetry telemetry) {
         this.startSupplierImport = startSupplierImport;
         this.processSupplierImport = processSupplierImport;
+        this.routeSupplierImportMatches = routeSupplierImportMatches;
         this.getSupplierImportStatus = getSupplierImportStatus;
         this.getSupplierImportReport = getSupplierImportReport;
         this.importPolicy = importPolicy;
+        this.candidateBlockingPolicy = candidateBlockingPolicy;
         this.telemetry = telemetry;
     }
 
@@ -94,6 +103,12 @@ public class SupplierImportController {
             ProcessSupplierImportResult processed = processSupplierImport.execute(started.importJobId());
             telemetry.completed(startedAt, processed);
             finalStatus = processed.status();
+            if (processed.status() == ImportStatus.VALIDATED) {
+                finalStatus = routeSupplierImportMatches
+                        .execute(new RouteSupplierImportMatchesCommand(
+                                started.importJobId(), candidateBlockingPolicy.maximumCandidates()))
+                        .status();
+            }
         }
 
         String statusUrl = path(started.importJobId());
