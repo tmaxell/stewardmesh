@@ -17,6 +17,8 @@ import io.stewardmesh.masterdata.application.port.out.StoreGoldenRecordProjectio
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordProjection;
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordState;
 import io.stewardmesh.masterdata.application.port.out.ValidationIssueReader;
+import io.stewardmesh.masterdata.application.port.out.BusinessUnitRepository;
+import io.stewardmesh.masterdata.application.port.out.SiteAssignmentRepository;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordWriter;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchCandidateBlocker;
@@ -30,6 +32,7 @@ import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordProjectionStor
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordProjectionLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordStateLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcValidationIssueReader;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcSiteAssignmentRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.Bean;
@@ -45,6 +48,16 @@ import tools.jackson.databind.ObjectMapper;
 @EntityScan(basePackageClasses = IntakeArtifactEntity.class)
 @EnableJpaRepositories(basePackageClasses = SpringDataIntakeArtifactRepository.class)
 public class IntakePersistenceConfiguration {
+
+    @Bean
+    BusinessUnitRepository businessUnitRepository(SpringDataBusinessUnitRepository repository) {
+        return new JpaBusinessUnitRepository(repository);
+    }
+
+    @Bean
+    SiteAssignmentRepository siteAssignmentRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcSiteAssignmentRepository(jdbcTemplate);
+    }
 
     @Bean
     JpaGoldenRecordMetadataStore goldenRecordMetadataStore(

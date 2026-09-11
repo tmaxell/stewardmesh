@@ -30,6 +30,8 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
 
         assertEquals(
                 List.of(
+                        "business_unit",
+                        "business_unit_version",
                         "golden_attribute",
                         "golden_record_metadata",
                         "golden_record_source_association",
@@ -39,6 +41,8 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
                         "intake_artifact",
                         "match_decision",
                         "match_evaluation",
+                        "site_assignment",
+                        "site_assignment_version",
                         "source_association",
                         "source_record",
                         "stewardship_case",
