@@ -24,12 +24,13 @@ if [[ -z "${TOKEN}" ]]; then
   exit 1
 fi
 
-IDEMPOTENCY_KEY="local-smoke-$(date +%s)"
+SMOKE_RUN_ID="$(date +%s)$$"
+IDEMPOTENCY_KEY="local-smoke-${SMOKE_RUN_ID}"
 upload() {
   curl --fail-with-body --silent --show-error \
     -H "Authorization: Bearer ${TOKEN}" \
     -H "Idempotency-Key: ${IDEMPOTENCY_KEY}" \
-    -F "sourceSystem=SYNTHETIC_LOCAL_SMOKE" \
+    -F "sourceSystem=SYNTHETIC_SMOKE_${SMOKE_RUN_ID}" \
     -F "workbook=@${REPOSITORY_ROOT}/test-fixtures/intake/supplier-workbook-v1-valid.xlsx;type=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" \
     http://localhost:8080/api/v1/supplier-imports
 }
@@ -37,6 +38,8 @@ upload() {
 FIRST_RESPONSE="$(upload)"
 SECOND_RESPONSE="$(upload)"
 printf '%s' "${FIRST_RESPONSE}" | grep -q '"replayed":false'
+printf '%s' "${FIRST_RESPONSE}" | grep -q '"status":"MATCHED"'
 printf '%s' "${SECOND_RESPONSE}" | grep -q '"replayed":true'
+printf '%s' "${SECOND_RESPONSE}" | grep -q '"status":"MATCHED"'
 
-echo "Local smoke passed: initial upload and idempotent replay succeeded."
+echo "Local smoke passed: intake reached MATCHED and idempotent replay succeeded."

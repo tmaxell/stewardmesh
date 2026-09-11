@@ -86,7 +86,7 @@ The Phase 2 E2E proof starts a disposable PostgreSQL instance and exercises the 
   -Dfailsafe.failIfNoSpecifiedTests=false
 ```
 
-Run `./scripts/verify-phase-2.sh` for the complete repository gate, including the full test suite, aggregate coverage, Compose validation and Git hygiene checks. Java 25 and Docker are required; all demo identities are generated synthetic fixtures.
+Run `./scripts/verify-phase-2.sh` for the complete repository gate, including both black-box E2E flows, aggregate coverage, Compose validation and Git hygiene checks. The same post-build gates are mandatory in pull-request CI. Java 25 and Docker are required; all demo identities are generated synthetic fixtures.
 
 Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes. Matching metric labels use only bounded entity/outcome/conflict dimensions. Console logs use structured JSON and never include workbook rows or supplier identifiers.
 

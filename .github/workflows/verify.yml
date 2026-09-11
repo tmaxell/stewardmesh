@@ -5,10 +5,6 @@ on:
     branches:
       - dev
       - main
-  push:
-    branches:
-      - dev
-      - main
 
 permissions:
   contents: read
@@ -42,7 +38,10 @@ jobs:
         run: ./mvnw --batch-mode --no-transfer-progress verify
 
       - name: Validate local Compose configuration
-        run: docker compose -f deploy/local/compose.yaml config --quiet
+        run: docker compose --env-file .env.example -f deploy/local/compose.yaml config --quiet
+
+      - name: Enforce E2E, coverage and repository hygiene gates
+        run: ./scripts/check-quality-gates.sh
 
       - name: Check patch whitespace
         env:
