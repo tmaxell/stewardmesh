@@ -50,4 +50,11 @@ public record BusinessUnit(
                 && !effectiveOn.isBefore(validFrom)
                 && validTo.map(end -> !effectiveOn.isAfter(end)).orElse(true);
     }
+
+    public boolean supportsThroughout(
+            BusinessUnitRole role, LocalDate intervalStart, Optional<LocalDate> intervalEnd) {
+        Objects.requireNonNull(intervalEnd, "intervalEnd must not be null");
+        return supports(role, intervalStart)
+                && intervalEnd.map(end -> supports(role, end)).orElseGet(() -> validTo.isEmpty());
+    }
 }

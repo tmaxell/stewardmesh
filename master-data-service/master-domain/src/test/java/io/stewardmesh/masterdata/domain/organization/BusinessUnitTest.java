@@ -21,6 +21,14 @@ class BusinessUnitTest {
         assertTrue(unit.supports(BusinessUnitRole.PROCUREMENT, LocalDate.of(2026, 1, 1)));
         assertTrue(unit.supports(BusinessUnitRole.PROCUREMENT, LocalDate.of(2026, 12, 31)));
         assertFalse(unit.supports(BusinessUnitRole.CLIENT, LocalDate.of(2026, 6, 1)));
+        assertTrue(unit.supportsThroughout(
+                BusinessUnitRole.PROCUREMENT,
+                LocalDate.of(2026, 2, 1),
+                Optional.of(LocalDate.of(2026, 12, 31))));
+        assertFalse(unit.supportsThroughout(
+                BusinessUnitRole.PROCUREMENT,
+                LocalDate.of(2026, 2, 1),
+                Optional.empty()));
     }
 
     @Test
