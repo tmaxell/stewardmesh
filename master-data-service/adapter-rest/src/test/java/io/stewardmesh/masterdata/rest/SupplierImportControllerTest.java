@@ -180,7 +180,7 @@ class SupplierImportControllerTest {
     void publishesTheVersionedOpenApiPathsWithoutAuthentication() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.info.title").value("StewardMesh Supplier Intake API"))
+                .andExpect(jsonPath("$.info.title").value("StewardMesh Master Data API"))
                 .andExpect(jsonPath("$.paths['/api/v1/supplier-imports']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/supplier-imports/{importId}']").exists())
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth").exists());

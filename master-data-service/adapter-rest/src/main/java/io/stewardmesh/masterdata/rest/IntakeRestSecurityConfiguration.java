@@ -32,6 +32,8 @@ public class IntakeRestSecurityConfiguration {
                         .hasAuthority("SCOPE_supplier-import.write")
                         .requestMatchers(HttpMethod.GET, "/api/v1/supplier-imports/**")
                         .hasAuthority("SCOPE_supplier-import.read")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/identity-resolution/**", "/api/v1/golden-records/**")
+                        .hasAuthority("SCOPE_identity-resolution.read")
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(errors -> errors

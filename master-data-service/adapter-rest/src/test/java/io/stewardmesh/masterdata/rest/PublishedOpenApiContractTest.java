@@ -18,12 +18,7 @@ class PublishedOpenApiContractTest {
 
     @Test
     void publishesTheThreeVersionedOperationsAndOAuthScopes() throws IOException {
-        Object document;
-        try (InputStream input = getClass()
-                .getResourceAsStream("/contracts/openapi/supplier-imports-v1.yaml")) {
-            assertNotNull(input, "published OpenAPI contract must be available");
-            document = new Yaml(new SafeConstructor(new LoaderOptions())).load(input);
-        }
+        Object document = document("supplier-imports-v1.yaml");
 
         Map<?, ?> root = map(document);
         assertEquals("3.1.0", root.get("openapi"));
@@ -42,6 +37,34 @@ class PublishedOpenApiContractTest {
                 "/api/v1/supplier-imports/{importId}/report",
                 "get",
                 "supplier-import.read");
+    }
+
+    @Test
+    void publishesOnlyFourBoundedIdentityResolutionReads() throws IOException {
+        Map<?, ?> root = map(document("identity-resolution-v1.yaml"));
+        assertEquals("3.1.0", root.get("openapi"));
+        Map<?, ?> paths = map(root.get("paths"));
+        assertEquals(Set.of(
+                "/api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}",
+                "/api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/candidates",
+                "/api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/candidates/{candidateId}/explanation",
+                "/api/v1/golden-records/{entityType}/{entityId}"), paths.keySet());
+        paths.forEach((path, operation) -> {
+            Map<?, ?> methods = map(operation);
+            assertEquals(Set.of("get"), methods.keySet(), "identity contract must be read-only");
+            assertSecurityScope(paths, path.toString(), "get", "identity-resolution.read");
+        });
+        Map<?, ?> candidateParameters = map(map(paths.get(
+                "/api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/candidates"))
+                .get("get"));
+        assertTrue(candidateParameters.get("parameters").toString().contains("maximum=100"));
+    }
+
+    private Object document(String name) throws IOException {
+        try (InputStream input = getClass().getResourceAsStream("/contracts/openapi/" + name)) {
+            assertNotNull(input, "published OpenAPI contract must be available");
+            return new Yaml(new SafeConstructor(new LoaderOptions())).load(input);
+        }
     }
 
     private static void assertSecurityScope(

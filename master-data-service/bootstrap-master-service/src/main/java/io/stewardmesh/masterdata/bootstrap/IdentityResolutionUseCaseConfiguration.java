@@ -5,9 +5,17 @@ import io.stewardmesh.masterdata.application.identity.CandidateBlockingPolicy;
 import io.stewardmesh.masterdata.application.identity.GenerateMatchCandidatesService;
 import io.stewardmesh.masterdata.application.identity.ScoreMatchCandidatesService;
 import io.stewardmesh.masterdata.application.identity.RouteSupplierImportMatchesService;
+import io.stewardmesh.masterdata.application.identity.IdentityResolutionCandidatesService;
+import io.stewardmesh.masterdata.application.identity.IdentityResolutionStatusService;
+import io.stewardmesh.masterdata.application.identity.MatchExplanationService;
+import io.stewardmesh.masterdata.application.goldenrecord.GoldenRecordReadService;
 import io.stewardmesh.masterdata.application.port.in.GenerateMatchCandidates;
 import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
 import io.stewardmesh.masterdata.application.port.in.ScoreMatchCandidates;
+import io.stewardmesh.masterdata.application.port.in.GetGoldenRecord;
+import io.stewardmesh.masterdata.application.port.in.GetIdentityResolutionStatus;
+import io.stewardmesh.masterdata.application.port.in.GetMatchExplanation;
+import io.stewardmesh.masterdata.application.port.in.ListIdentityResolutionCandidates;
 import io.stewardmesh.masterdata.application.port.out.BlockMatchCandidates;
 import io.stewardmesh.masterdata.application.port.out.LoadMatchProfiles;
 import io.stewardmesh.masterdata.application.port.out.LoadSourceRecord;
@@ -17,6 +25,8 @@ import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluationSummary
 import io.stewardmesh.masterdata.application.port.out.MatchScoringTelemetry;
 import io.stewardmesh.masterdata.application.port.out.StoreStewardshipCase;
 import io.stewardmesh.masterdata.application.port.out.StoreMatchEvaluation;
+import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluation;
+import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordProjection;
 import io.stewardmesh.masterdata.domain.identity.SupplierMatchScorer;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +34,27 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 class IdentityResolutionUseCaseConfiguration {
+
+    @Bean
+    GetIdentityResolutionStatus getIdentityResolutionStatus(LoadMatchEvaluation evaluations) {
+        return new IdentityResolutionStatusService(evaluations);
+    }
+
+    @Bean
+    ListIdentityResolutionCandidates listIdentityResolutionCandidates(
+            LoadMatchEvaluation evaluations) {
+        return new IdentityResolutionCandidatesService(evaluations);
+    }
+
+    @Bean
+    GetMatchExplanation getMatchExplanation(LoadMatchEvaluation evaluations) {
+        return new MatchExplanationService(evaluations);
+    }
+
+    @Bean
+    GetGoldenRecord getGoldenRecord(LoadGoldenRecordProjection projections) {
+        return new GoldenRecordReadService(projections);
+    }
 
     @Bean
     CandidateBlockingPolicy candidateBlockingPolicy() {
