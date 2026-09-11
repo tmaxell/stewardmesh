@@ -10,6 +10,10 @@ import io.stewardmesh.masterdata.application.port.in.StartSupplierImport;
 import io.stewardmesh.masterdata.application.port.in.GenerateMatchCandidates;
 import io.stewardmesh.masterdata.application.port.in.ScoreMatchCandidates;
 import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
+import io.stewardmesh.masterdata.application.port.in.AssignSupplierSite;
+import io.stewardmesh.masterdata.application.port.in.GetBusinessUnit;
+import io.stewardmesh.masterdata.application.port.in.ListSiteAssignments;
+import io.stewardmesh.masterdata.application.port.in.SynchronizeBusinessUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -47,6 +51,18 @@ class StewardMeshApplicationIT {
     @Autowired
     private RouteSupplierImportMatches routeSupplierImportMatches;
 
+    @Autowired
+    private SynchronizeBusinessUnit synchronizeBusinessUnit;
+
+    @Autowired
+    private GetBusinessUnit getBusinessUnit;
+
+    @Autowired
+    private AssignSupplierSite assignSupplierSite;
+
+    @Autowired
+    private ListSiteAssignments listSiteAssignments;
+
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
@@ -62,5 +78,9 @@ class StewardMeshApplicationIT {
         assertNotNull(generateMatchCandidates);
         assertNotNull(scoreMatchCandidates);
         assertNotNull(routeSupplierImportMatches);
+        assertNotNull(synchronizeBusinessUnit);
+        assertNotNull(getBusinessUnit);
+        assertNotNull(assignSupplierSite);
+        assertNotNull(listSiteAssignments);
     }
 }
