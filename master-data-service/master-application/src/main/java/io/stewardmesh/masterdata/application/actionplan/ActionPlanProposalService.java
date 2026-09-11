@@ -8,6 +8,7 @@ import io.stewardmesh.masterdata.domain.actionplan.ActionPlan;
 import io.stewardmesh.masterdata.domain.actionplan.ActionPlanVersion;
 import io.stewardmesh.masterdata.domain.actionplan.GovernedActionPlan;
 import java.time.Clock;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 /**
@@ -49,7 +50,9 @@ public final class ActionPlanProposalService implements ProposeActionPlan {
                 identityGenerator.nextActionPlanId(),
                 ActionPlanVersion.initial(),
                 command.importId(),
-                clock.instant(),
+                // The creation time is part of the plan hash, so it is canonicalized to the
+                // precision every storage boundary can return unchanged.
+                clock.instant().truncatedTo(ChronoUnit.MICROS),
                 authenticatedActor.subject(),
                 command.steps());
     }
