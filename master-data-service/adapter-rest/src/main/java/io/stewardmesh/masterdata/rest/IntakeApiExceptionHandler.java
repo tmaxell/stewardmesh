@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -33,6 +34,16 @@ public class IntakeApiExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 "REQUEST_INVALID",
                 "request fields violate the published contract",
+                request);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    ProblemDetail missingParameter(
+            MissingServletRequestParameterException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "REQUEST_FIELD_REQUIRED",
+                exception.getParameterName() + " is required",
                 request);
     }
 

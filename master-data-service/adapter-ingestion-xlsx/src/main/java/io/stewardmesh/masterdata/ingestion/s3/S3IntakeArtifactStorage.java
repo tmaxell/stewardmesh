@@ -20,6 +20,7 @@ import java.time.Clock;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Objects;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -148,6 +149,8 @@ public final class S3IntakeArtifactStorage implements StoreIntakeArtifact, LoadI
             if (exception.statusCode() != 412) {
                 throw new ArtifactStorageException("intake artifact could not be stored", exception);
             }
+        } catch (SdkException exception) {
+            throw new ArtifactStorageException("intake artifact could not be stored", exception);
         }
         verifyStoredObject(key, artifact.sha256(), artifact.sizeBytes());
     }
@@ -161,6 +164,9 @@ public final class S3IntakeArtifactStorage implements StoreIntakeArtifact, LoadI
                 return false;
             }
             throw new ArtifactStorageException("intake artifact presence could not be checked", exception);
+        } catch (SdkException exception) {
+            throw new ArtifactStorageException(
+                    "intake artifact presence could not be checked", exception);
         }
     }
 
@@ -170,6 +176,8 @@ public final class S3IntakeArtifactStorage implements StoreIntakeArtifact, LoadI
             response = s3.headObject(
                     HeadObjectRequest.builder().bucket(bucket).key(key).build());
         } catch (S3Exception exception) {
+            throw new ArtifactStorageException("intake artifact is unavailable", exception);
+        } catch (SdkException exception) {
             throw new ArtifactStorageException("intake artifact is unavailable", exception);
         }
         if (response.contentLength() != expectedSize
@@ -232,11 +240,16 @@ public final class S3IntakeArtifactStorage implements StoreIntakeArtifact, LoadI
 
         @Override
         public InputStream openStream() {
-            InputStream input = s3.getObject(GetObjectRequest.builder()
-                    .bucket(bucket)
-                    .key(artifact.storageKey())
-                    .build());
-            return new ChecksumVerifyingInputStream(input, artifact.sha256(), artifact.sizeBytes());
+            try {
+                InputStream input = s3.getObject(GetObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(artifact.storageKey())
+                        .build());
+                return new ChecksumVerifyingInputStream(
+                        input, artifact.sha256(), artifact.sizeBytes());
+            } catch (SdkException exception) {
+                throw new ArtifactStorageException("intake artifact is unavailable", exception);
+            }
         }
     }
 

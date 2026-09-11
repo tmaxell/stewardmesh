@@ -4,6 +4,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 import io.stewardmesh.masterdata.application.goldenrecord.GoldenRecordView;
 import io.stewardmesh.masterdata.application.identity.IdentityResolutionCandidatePage;
@@ -45,6 +46,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.springframework.http.MediaType;
 
 @SpringBootTest(classes = IdentityResolutionControllerTest.TestApplication.class)
 @AutoConfigureMockMvc
@@ -120,6 +122,23 @@ class IdentityResolutionControllerTest {
                         .with(readScope()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("MATCH_ENTITY_TYPE_INVALID"));
+    }
+
+    @Test
+    void returnsStableProblemWhenRulesetParameterIsMissing() throws Exception {
+        mockMvc.perform(get(BASE).with(readScope()))
+                .andExpect(status().isBadRequest())
+                .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.code").value("REQUEST_FIELD_REQUIRED"))
+                .andExpect(jsonPath("$.detail").value("rulesetId is required"));
+    }
+
+    @Test
+    void allowsOrchestratorHealthProbePathsWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/actuator/health/liveness"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/actuator/health/readiness"))
+                .andExpect(status().isNotFound());
     }
 
     private static RequestPostProcessor readScope() {
