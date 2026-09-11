@@ -3,6 +3,9 @@ package io.stewardmesh.masterdata.rest;
 import io.stewardmesh.masterdata.application.intake.IdempotencyConflictException;
 import io.stewardmesh.masterdata.application.intake.IntakeArtifactAccessException;
 import io.stewardmesh.masterdata.application.intake.SupplierImportNotFoundException;
+import io.stewardmesh.masterdata.application.goldenrecord.GoldenRecordNotFoundException;
+import io.stewardmesh.masterdata.application.identity.IdentityResolutionNotFoundException;
+import io.stewardmesh.masterdata.application.identity.MatchCandidateNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.Locale;
@@ -57,6 +60,36 @@ public class IntakeApiExceptionHandler {
                 HttpStatus.NOT_FOUND,
                 "IMPORT_NOT_FOUND",
                 "supplier import was not found",
+                request);
+    }
+
+    @ExceptionHandler(IdentityResolutionNotFoundException.class)
+    ProblemDetail identityResolutionNotFound(
+            IdentityResolutionNotFoundException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.NOT_FOUND,
+                "IDENTITY_RESOLUTION_NOT_FOUND",
+                "identity resolution was not found",
+                request);
+    }
+
+    @ExceptionHandler(MatchCandidateNotFoundException.class)
+    ProblemDetail matchCandidateNotFound(
+            MatchCandidateNotFoundException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.NOT_FOUND,
+                "MATCH_CANDIDATE_NOT_FOUND",
+                "match candidate was not found",
+                request);
+    }
+
+    @ExceptionHandler(GoldenRecordNotFoundException.class)
+    ProblemDetail goldenRecordNotFound(
+            GoldenRecordNotFoundException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.NOT_FOUND,
+                "GOLDEN_RECORD_NOT_FOUND",
+                "golden record was not found",
                 request);
     }
 

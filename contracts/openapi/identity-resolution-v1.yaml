@@ -1,0 +1,253 @@
+openapi: 3.1.0
+info:
+  title: StewardMesh Identity Resolution Read API
+  version: v1
+  description: Bounded, non-mutating reads of persisted match evidence and golden projections.
+paths:
+  /api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}:
+    get:
+      operationId: getIdentityResolutionStatus
+      security:
+        - bearerAuth: [identity-resolution.read]
+      parameters:
+        - $ref: '#/components/parameters/OriginSystem'
+        - $ref: '#/components/parameters/SourceRecordId'
+        - $ref: '#/components/parameters/SourceVersion'
+        - $ref: '#/components/parameters/RulesetId'
+      responses:
+        '200':
+          description: Aggregate status without supplier values.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/IdentityResolutionStatus'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/candidates:
+    get:
+      operationId: listIdentityResolutionCandidates
+      security:
+        - bearerAuth: [identity-resolution.read]
+      parameters:
+        - $ref: '#/components/parameters/OriginSystem'
+        - $ref: '#/components/parameters/SourceRecordId'
+        - $ref: '#/components/parameters/SourceVersion'
+        - $ref: '#/components/parameters/RulesetId'
+        - $ref: '#/components/parameters/MatchEntityType'
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 0, default: 0}
+        - name: size
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Stable candidate page without expanded feature evidence.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MatchCandidatePage'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/candidates/{candidateId}/explanation:
+    get:
+      operationId: getMatchExplanation
+      security:
+        - bearerAuth: [identity-resolution.read]
+      parameters:
+        - $ref: '#/components/parameters/OriginSystem'
+        - $ref: '#/components/parameters/SourceRecordId'
+        - $ref: '#/components/parameters/SourceVersion'
+        - $ref: '#/components/parameters/RulesetId'
+        - $ref: '#/components/parameters/MatchEntityType'
+        - name: candidateId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Complete non-sensitive feature and threshold evidence.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MatchCandidate'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/golden-records/{entityType}/{entityId}:
+    get:
+      operationId: getGoldenRecord
+      security:
+        - bearerAuth: [identity-resolution.read]
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema: {type: string, enum: [PARTY, ADDRESS, SITE]}
+        - name: entityId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Current typed golden projection with attribute provenance.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GoldenRecord'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    OriginSystem:
+      name: originSystem
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 128}
+    SourceRecordId:
+      name: sourceRecordId
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 128}
+    SourceVersion:
+      name: sourceVersion
+      in: path
+      required: true
+      schema: {type: integer, format: int64, minimum: 1}
+    RulesetId:
+      name: rulesetId
+      in: query
+      required: true
+      schema: {type: string, pattern: '^[a-z0-9]+(-[a-z0-9]+)*-v[0-9]+$'}
+    MatchEntityType:
+      name: entityType
+      in: query
+      required: true
+      schema: {type: string, enum: [PARTY, SITE]}
+  responses:
+    BadRequest:
+      description: Request contract violation.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Unauthorized:
+      description: Bearer token missing or invalid.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Forbidden:
+      description: Dedicated read scope missing.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    NotFound:
+      description: Requested persisted evidence or projection was not found.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+  schemas:
+    SourceIdentity:
+      type: object
+      required: [originSystem, sourceRecordId, sourceVersion]
+      properties:
+        originSystem: {type: string}
+        sourceRecordId: {type: string}
+        sourceVersion: {type: integer, format: int64, minimum: 1}
+    IdentityResolutionStatus:
+      type: object
+      required: [source, rulesetId, evaluatedAt, partyCandidates, siteCandidates, autoLinks, reviews, noMatches, hardConflict]
+      properties:
+        source: {$ref: '#/components/schemas/SourceIdentity'}
+        rulesetId: {type: string}
+        evaluatedAt: {type: string, format: date-time}
+        partyCandidates: {type: integer, minimum: 0}
+        siteCandidates: {type: integer, minimum: 0}
+        autoLinks: {type: integer, minimum: 0}
+        reviews: {type: integer, minimum: 0}
+        noMatches: {type: integer, minimum: 0}
+        hardConflict: {type: boolean}
+    MatchCandidatePage:
+      type: object
+      required: [source, rulesetId, entityType, page, size, totalCandidates, candidates]
+      properties:
+        source: {$ref: '#/components/schemas/SourceIdentity'}
+        rulesetId: {type: string}
+        entityType: {type: string, enum: [PARTY, SITE]}
+        page: {type: integer, minimum: 0}
+        size: {type: integer, minimum: 1, maximum: 100}
+        totalCandidates: {type: integer, minimum: 0}
+        candidates:
+          type: array
+          maxItems: 100
+          items: {$ref: '#/components/schemas/MatchCandidate'}
+    MatchCandidate:
+      type: object
+      required: [entityType, candidateId, outcome, scoreBasisPoints, rulesetId, hardConflict, features]
+      properties:
+        entityType: {type: string, enum: [PARTY, SITE]}
+        candidateId: {type: string, format: uuid}
+        outcome: {type: string, enum: [AUTO_LINK, REVIEW, NO_MATCH]}
+        scoreBasisPoints: {type: integer, minimum: 0, maximum: 10000}
+        rulesetId: {type: string}
+        hardConflict: {type: boolean}
+        features:
+          type: array
+          maxItems: 16
+          items: {$ref: '#/components/schemas/MatchFeature'}
+    MatchFeature:
+      type: object
+      required: [code, signal, contributionBasisPoints]
+      properties:
+        code: {type: string}
+        signal: {type: string, enum: [MATCH, MISMATCH, MISSING, CONFLICT]}
+        contributionBasisPoints: {type: integer, minimum: -10000, maximum: 10000}
+    GoldenRecord:
+      type: object
+      required: [entityType, entityId, partyId, version, rulesetId, projectedAt, attributes, sourceAssociationIds]
+      properties:
+        entityType: {type: string, enum: [PARTY, ADDRESS, SITE]}
+        entityId: {type: string, format: uuid}
+        partyId: {type: string, format: uuid}
+        addressId: {type: [string, 'null'], format: uuid}
+        version: {type: integer, format: int64, minimum: 1}
+        rulesetId: {type: string}
+        projectedAt: {type: string, format: date-time}
+        attributes:
+          type: array
+          maxItems: 16
+          items: {$ref: '#/components/schemas/GoldenAttribute'}
+        sourceAssociationIds:
+          type: array
+          maxItems: 100
+          items: {type: string, format: uuid}
+    GoldenAttribute:
+      type: object
+      required: [name, value, provenance]
+      properties:
+        name: {type: string}
+        value: {type: string, maxLength: 2048}
+        provenance: {$ref: '#/components/schemas/AttributeProvenance'}
+    AttributeProvenance:
+      type: object
+      required: [source, associationId, rule, rulesetId, decidedAt]
+      properties:
+        source: {$ref: '#/components/schemas/SourceIdentity'}
+        associationId: {type: string, format: uuid}
+        rule: {type: string}
+        rulesetId: {type: string}
+        decidedAt: {type: string, format: date-time}
+    Problem:
+      type: object
+      required: [type, title, status, detail, instance, code]
+      properties:
+        type: {type: string, format: uri}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        instance: {type: string, format: uri-reference}
+        code: {type: string}
