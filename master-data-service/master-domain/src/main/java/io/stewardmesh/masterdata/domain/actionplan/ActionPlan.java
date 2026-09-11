@@ -52,6 +52,14 @@ public record ActionPlan(
                 id, version, importId, createdAt, proposedBySubject, immutableSteps, hash);
     }
 
+    /**
+     * Content identity used to deduplicate proposals. Two sealed plans with different identity,
+     * time or proposer but identical import and steps share this value.
+     */
+    public ActionPlanFingerprint fingerprint() {
+        return ActionPlanDigest.fingerprint(importId, steps);
+    }
+
     public ActionRisk risk() {
         return steps.stream()
                 .map(ActionPlanStep::risk)
