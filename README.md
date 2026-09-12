@@ -54,6 +54,8 @@ Every candidate decision is stored immutably with its ruleset, outcome, score, h
 
 Validated imports can be handed to a resumable matching use case. It rejects stale source versions before processing, reuses already persisted evaluations after a retry, and finishes as `MATCHED` or `REVIEW_REQUIRED`. Review/conflict outcomes create one immutable, idempotent stewardship case per source version and scoring ruleset. Read-only OAuth-protected endpoints expose bounded status, candidates, explanations and current golden records without bypassing the application layer.
 
+Phase 3 now includes governed action plans through execution and a Streamable HTTP MCP boundary. Six versioned tools keep reading, simulation, proposal, human approval/rejection and execution as separate calls. Exact plan version/hash bindings, per-tool OAuth scopes and server-derived caller identities prevent a model from granting itself authority; execution commits master effects, audit and outbox atomically and is idempotent per authenticated subject and request key.
+
 ## Build and run
 
 Java 25 is required. Maven is supplied by the repository wrapper.

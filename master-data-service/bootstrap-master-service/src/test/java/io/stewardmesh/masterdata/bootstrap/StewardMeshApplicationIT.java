@@ -1,7 +1,13 @@
 package io.stewardmesh.masterdata.bootstrap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.stewardmesh.masterdata.application.port.out.LoadIntakeArtifact;
 import io.stewardmesh.masterdata.application.port.out.ParseSupplierWorkbook;
@@ -21,15 +27,21 @@ import io.stewardmesh.masterdata.application.port.in.SimulateActionPlan;
 import io.stewardmesh.masterdata.application.port.in.SynchronizeBusinessUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@AutoConfigureMockMvc
 class StewardMeshApplicationIT {
 
     @Container
@@ -83,6 +95,12 @@ class StewardMeshApplicationIT {
     @Autowired
     private ExecuteActionPlan executeActionPlan;
 
+    @Autowired
+    private ToolCallbackProvider toolCallbacks;
+
+    @Autowired
+    private MockMvc mockMvc;
+
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
@@ -107,5 +125,30 @@ class StewardMeshApplicationIT {
         assertNotNull(simulateActionPlan);
         assertNotNull(decideActionPlan);
         assertNotNull(executeActionPlan);
+        assertEquals(6, toolCallbacks.getToolCallbacks().length);
+    }
+
+    @Test
+    void protectsTheStreamableMcpEndpointWithBearerAuthentication() throws Exception {
+        String initialize = """
+                {"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+                  "protocolVersion":"2025-06-18","capabilities":{},
+                  "clientInfo":{"name":"synthetic-test-client","version":"1.0"}}}
+                """;
+
+        mockMvc.perform(post("/mcp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
+                        .content(initialize))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/mcp")
+                        .with(jwt().authorities(
+                                new SimpleGrantedAuthority("SCOPE_mdm.supplier.read")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
+                        .content(initialize))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("stewardmesh-master-data")));
     }
 }
