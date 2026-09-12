@@ -25,6 +25,7 @@
         <module>master-data-service/adapter-ingestion-xlsx</module>
         <module>master-data-service/adapter-persistence</module>
         <module>master-data-service/adapter-rest</module>
+        <module>master-data-service/adapter-mcp</module>
         <module>master-data-service/bootstrap-master-service</module>
     </modules>
 
@@ -47,12 +48,20 @@
         <maven.surefire.version>3.5.5</maven.surefire.version>
         <poi.version>5.5.1</poi.version>
         <springdoc.version>3.0.3</springdoc.version>
+        <spring-ai.version>2.0.1</spring-ai.version>
 
         <jacocoArgLine/>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
@@ -83,6 +92,11 @@
             <dependency>
                 <groupId>io.stewardmesh</groupId>
                 <artifactId>adapter-rest</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.stewardmesh</groupId>
+                <artifactId>adapter-mcp</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
