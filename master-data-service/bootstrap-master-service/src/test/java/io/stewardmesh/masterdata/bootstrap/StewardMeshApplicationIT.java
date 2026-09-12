@@ -11,6 +11,7 @@ import io.stewardmesh.masterdata.application.port.in.GenerateMatchCandidates;
 import io.stewardmesh.masterdata.application.port.in.ScoreMatchCandidates;
 import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
 import io.stewardmesh.masterdata.application.port.in.AssignSupplierSite;
+import io.stewardmesh.masterdata.application.port.in.DecideActionPlan;
 import io.stewardmesh.masterdata.application.port.in.GetBusinessUnit;
 import io.stewardmesh.masterdata.application.port.in.ListSiteAssignments;
 import io.stewardmesh.masterdata.application.port.in.GetActionPlan;
@@ -75,6 +76,9 @@ class StewardMeshApplicationIT {
     @Autowired
     private SimulateActionPlan simulateActionPlan;
 
+    @Autowired
+    private DecideActionPlan decideActionPlan;
+
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
@@ -97,5 +101,6 @@ class StewardMeshApplicationIT {
         assertNotNull(proposeActionPlan);
         assertNotNull(getActionPlan);
         assertNotNull(simulateActionPlan);
+        assertNotNull(decideActionPlan);
     }
 }
