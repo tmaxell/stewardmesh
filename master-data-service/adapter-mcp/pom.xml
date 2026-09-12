@@ -49,4 +49,16 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <testResources>
+            <testResource>
+                <directory>src/test/resources</directory>
+            </testResource>
+            <testResource>
+                <directory>../../contracts/mcp</directory>
+                <targetPath>contracts/mcp</targetPath>
+            </testResource>
+        </testResources>
+    </build>
 </project>

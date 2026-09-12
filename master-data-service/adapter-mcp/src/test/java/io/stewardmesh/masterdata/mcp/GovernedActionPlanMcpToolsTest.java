@@ -45,8 +45,10 @@ import io.stewardmesh.masterdata.domain.organization.SiteAssignmentId;
 import io.stewardmesh.masterdata.domain.organization.SitePurpose;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -107,6 +109,28 @@ class GovernedActionPlanMcpToolsTest {
                 .inputSchema();
         assertTrue(proposalSchema.contains("expectedPartyVersion"));
         assertTrue(proposalSchema.contains("evidence"));
+    }
+
+    @Test
+    void publishedContractNamesEveryRuntimeToolAndRequiredScope() throws Exception {
+        String contract;
+        try (var stream = Objects.requireNonNull(
+                getClass().getResourceAsStream(
+                        "/contracts/mcp/governed-action-plan-tools-v1.json"))) {
+            contract = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        var provider = MethodToolCallbackProvider.builder().toolObjects(tools()).build();
+
+        Arrays.stream(provider.getToolCallbacks()).forEach(callback ->
+                assertTrue(contract.contains("\"name\": \""
+                        + callback.getToolDefinition().name()
+                        + "\"")));
+        assertTrue(contract.contains("\"requiredScope\": \"mdm.supplier.read\""));
+        assertTrue(contract.contains("\"requiredScope\": \"mdm.steward.propose\""));
+        assertTrue(contract.contains("\"requiredScope\": \"mdm.steward.approve\""));
+        assertTrue(contract.contains("\"requiredScope\": \"mdm.plan.execute\""));
+        assertFalse(contract.contains("authorizedToExecute"));
+        assertFalse(contract.contains("proposedBySubject"));
     }
 
     @Test
