@@ -95,6 +95,7 @@ class OrganizationPersistenceIT extends PostgreSqlIntegrationTestSupport {
         var overlap = assignment(
                 UUID.randomUUID(), siteId, clientId, LocalDate.of(2026, 6, 30),
                 Optional.empty(), Set.of(SitePurpose.PURCHASING, SitePurpose.PAY));
+        assertEquals(java.util.List.of(first), assignments.findConflicts(overlap, 1));
         assertThrows(OrganizationWriteException.class, () -> assignments.save(overlap));
 
         var independentPurpose = assignment(
@@ -102,6 +103,17 @@ class OrganizationPersistenceIT extends PostgreSqlIntegrationTestSupport {
                 Optional.empty(), Set.of(SitePurpose.PAY));
         assignments.save(independentPurpose);
         assertEquals(2, assignments.findForSiteAndClient(siteId, clientId, 10).size());
+        assertEquals(
+                java.util.List.of(independentPurpose),
+                assignments.findConflicts(
+                        assignment(
+                                UUID.randomUUID(),
+                                siteId,
+                                clientId,
+                                LocalDate.of(2027, 1, 1),
+                                Optional.empty(),
+                                Set.of(SitePurpose.PAY)),
+                        10));
     }
 
     @Test

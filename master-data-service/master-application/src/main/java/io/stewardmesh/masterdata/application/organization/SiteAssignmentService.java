@@ -60,8 +60,7 @@ public final class SiteAssignmentService implements AssignSupplierSite {
             throw new SiteAssignmentConflictException(
                     "business unit is not a client throughout the assignment interval");
         }
-        var existing = assignments.findForSiteAndClient(
-                candidate.siteId(), candidate.clientBusinessUnitId(), SiteAssignmentQuery.MAX_LIMIT);
+        var existing = assignments.findConflicts(candidate, SiteAssignmentQuery.MAX_LIMIT);
         try {
             policy.validate(candidate, existing);
         } catch (IllegalArgumentException exception) {

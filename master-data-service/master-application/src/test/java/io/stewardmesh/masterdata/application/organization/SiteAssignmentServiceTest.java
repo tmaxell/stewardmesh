@@ -189,6 +189,14 @@ class SiteAssignmentServiceTest {
         }
 
         @Override
+        public List<SiteAssignment> findConflicts(SiteAssignment candidate, int limit) {
+            return values.stream()
+                    .filter(candidate::conflictsWith)
+                    .limit(limit)
+                    .toList();
+        }
+
+        @Override
         public SiteAssignment save(SiteAssignment assignment) {
             values.add(assignment);
             return assignment;

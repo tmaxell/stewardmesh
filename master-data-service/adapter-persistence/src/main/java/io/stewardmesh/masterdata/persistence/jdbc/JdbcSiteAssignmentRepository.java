@@ -73,6 +73,39 @@ public final class JdbcSiteAssignmentRepository implements SiteAssignmentReposit
     }
 
     @Override
+    public List<SiteAssignment> findConflicts(SiteAssignment candidate, int limit) {
+        Objects.requireNonNull(candidate, "candidate must not be null");
+        if (limit <= 0) {
+            throw new IllegalArgumentException("limit must be positive");
+        }
+        return jdbcTemplate.query(
+                SELECT + """
+                         WHERE site_id = ?
+                           AND client_business_unit_id = ?
+                           AND string_to_array(purposes, ',')
+                               && string_to_array(?, ',')
+                           AND daterange(valid_from, COALESCE(valid_to, 'infinity'::date), '[]')
+                               && daterange(?, COALESCE(?::date, 'infinity'::date), '[]')
+                         ORDER BY valid_from, assignment_id
+                         LIMIT ?
+                        """,
+                (resultSet, rowNumber) -> map(
+                        resultSet.getObject("assignment_id", UUID.class),
+                        resultSet.getObject("site_id", UUID.class),
+                        resultSet.getObject("client_business_unit_id", UUID.class),
+                        resultSet.getString("purposes"),
+                        resultSet.getDate("valid_from"),
+                        resultSet.getDate("valid_to"),
+                        resultSet.getLong("assignment_version")),
+                candidate.siteId().value(),
+                candidate.clientBusinessUnitId().value(),
+                purposes(candidate),
+                Date.valueOf(candidate.validFrom()),
+                candidate.validTo().map(Date::valueOf).orElse(null),
+                limit);
+    }
+
+    @Override
     public SiteAssignment save(SiteAssignment assignment) {
         Objects.requireNonNull(assignment, "assignment must not be null");
         try {
