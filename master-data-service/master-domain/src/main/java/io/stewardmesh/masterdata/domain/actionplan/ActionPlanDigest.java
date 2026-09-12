@@ -13,6 +13,7 @@ import java.util.List;
 final class ActionPlanDigest {
 
     private static final String SCHEMA = "stewardmesh.action-plan.sha256.v1";
+    private static final String CONTENT_SCHEMA = "stewardmesh.action-plan-content.sha256.v1";
 
     private final MessageDigest digest;
 
@@ -42,6 +43,15 @@ final class ActionPlanDigest {
         canonical.add(steps.size());
         steps.forEach(canonical::addStep);
         return new ActionPlanHash(HexFormat.of().formatHex(canonical.digest.digest()));
+    }
+
+    static ActionPlanFingerprint fingerprint(ImportJobId importId, List<ActionPlanStep> steps) {
+        ActionPlanDigest canonical = new ActionPlanDigest();
+        canonical.add(CONTENT_SCHEMA);
+        canonical.add(importId.value().toString());
+        canonical.add(steps.size());
+        steps.forEach(canonical::addStep);
+        return new ActionPlanFingerprint(HexFormat.of().formatHex(canonical.digest.digest()));
     }
 
     private void addStep(ActionPlanStep step) {
