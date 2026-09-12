@@ -2,6 +2,9 @@ package io.stewardmesh.masterdata.persistence.jpa;
 
 import io.stewardmesh.masterdata.application.port.out.ActionPlanRepository;
 import io.stewardmesh.masterdata.application.port.out.ActionPlanApprovalRepository;
+import io.stewardmesh.masterdata.application.port.out.ActionPlanExecutionRepository;
+import io.stewardmesh.masterdata.application.port.out.AuditEventRepository;
+import io.stewardmesh.masterdata.application.port.out.OutboxEventRepository;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
 import io.stewardmesh.masterdata.application.port.out.BlockMatchCandidates;
 import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
@@ -22,6 +25,9 @@ import io.stewardmesh.masterdata.application.port.out.ValidationIssueReader;
 import io.stewardmesh.masterdata.application.port.out.BusinessUnitRepository;
 import io.stewardmesh.masterdata.application.port.out.SiteAssignmentRepository;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcActionPlanRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcActionPlanExecutionRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcAuditEventRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcOutboxEventRepository;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordWriter;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchCandidateBlocker;
@@ -51,6 +57,22 @@ import tools.jackson.databind.ObjectMapper;
 @EntityScan(basePackageClasses = IntakeArtifactEntity.class)
 @EnableJpaRepositories(basePackageClasses = SpringDataIntakeArtifactRepository.class)
 public class IntakePersistenceConfiguration {
+
+    @Bean
+    ActionPlanExecutionRepository actionPlanExecutionRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcActionPlanExecutionRepository(jdbcTemplate);
+    }
+
+    @Bean
+    AuditEventRepository auditEventRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcAuditEventRepository(jdbcTemplate);
+    }
+
+    @Bean
+    OutboxEventRepository outboxEventRepository(
+            JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
+        return new JdbcOutboxEventRepository(jdbcTemplate, objectMapper);
+    }
 
     @Bean
     ActionPlanApprovalRepository actionPlanApprovalRepository(
