@@ -31,6 +31,8 @@ spring:
         version: 1.0.0
         instructions: "Use READ and SIMULATE before PROPOSE; approval and execution require separate authorized calls."
         request-timeout: 10s
+        annotation-scanner:
+          enabled: false
         capabilities:
           tool: true
           resource: false

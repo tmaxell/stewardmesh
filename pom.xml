@@ -39,6 +39,7 @@
         <project.build.outputTimestamp>2026-08-28T00:00:00Z</project.build.outputTimestamp>
 
         <archunit.version>1.4.1</archunit.version>
+        <antlr.version>4.13.2</antlr.version>
         <aws.sdk.version>2.54.13</aws.sdk.version>
         <commons.io.version>2.21.0</commons.io.version>
         <jacoco.version>0.8.15</jacoco.version>
@@ -49,6 +50,7 @@
         <poi.version>5.5.1</poi.version>
         <springdoc.version>3.0.3</springdoc.version>
         <spring-ai.version>2.0.1</spring-ai.version>
+        <swagger-annotations.version>2.2.47</swagger-annotations.version>
 
         <jacocoArgLine/>
     </properties>
@@ -103,6 +105,16 @@
                 <groupId>com.tngtech.archunit</groupId>
                 <artifactId>archunit-junit5</artifactId>
                 <version>${archunit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.swagger.core.v3</groupId>
+                <artifactId>swagger-annotations-jakarta</artifactId>
+                <version>${swagger-annotations.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-runtime</artifactId>
+                <version>${antlr.version}</version>
             </dependency>
             <dependency>
                 <groupId>commons-io</groupId>
