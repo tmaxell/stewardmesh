@@ -6,13 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.stewardmesh.masterdata.application.actionplan.ActionPlanConflictException;
 import io.stewardmesh.masterdata.application.port.out.ActionPlanRepository;
+import io.stewardmesh.masterdata.application.port.out.ActionPlanApprovalRepository;
 import io.stewardmesh.masterdata.domain.actionplan.ActionPlan;
+import io.stewardmesh.masterdata.domain.actionplan.ActionPlanApproval;
 import io.stewardmesh.masterdata.domain.actionplan.ActionPlanId;
 import io.stewardmesh.masterdata.domain.actionplan.ActionPlanStatus;
 import io.stewardmesh.masterdata.domain.actionplan.ActionPlanStep;
 import io.stewardmesh.masterdata.domain.actionplan.ActionPlanVersion;
 import io.stewardmesh.masterdata.domain.actionplan.ActionReasonCode;
 import io.stewardmesh.masterdata.domain.actionplan.ActionRisk;
+import io.stewardmesh.masterdata.domain.actionplan.ApprovalDecision;
+import io.stewardmesh.masterdata.domain.actionplan.ApprovalRequestKey;
 import io.stewardmesh.masterdata.domain.actionplan.AssignSupplierSiteStep;
 import io.stewardmesh.masterdata.domain.actionplan.CreateSupplierPartyStep;
 import io.stewardmesh.masterdata.domain.actionplan.CreateSupplierSiteStep;
@@ -58,6 +62,9 @@ class ActionPlanPersistenceIT extends PostgreSqlIntegrationTestSupport {
 
     @Autowired
     private ActionPlanRepository plans;
+
+    @Autowired
+    private ActionPlanApprovalRepository approvals;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -113,6 +120,7 @@ class ActionPlanPersistenceIT extends PostgreSqlIntegrationTestSupport {
         assertEquals(first, plans.findProposedByFingerprint(first.fingerprint()).orElseThrow());
         assertThrows(ActionPlanConflictException.class, () -> plans.save(second));
 
+        approvals.save(decision(first, ApprovalDecision.REJECT, "reject-duplicate-content"));
         plans.save(first.transitionTo(ActionPlanStatus.REJECTED));
 
         assertTrue(plans.findProposedByFingerprint(first.fingerprint()).isEmpty());
@@ -124,6 +132,7 @@ class ActionPlanPersistenceIT extends PostgreSqlIntegrationTestSupport {
         GovernedActionPlan proposed = GovernedActionPlan.proposed(plan(List.of(createParty(1))));
         plans.save(proposed);
 
+        approvals.save(decision(proposed, ApprovalDecision.APPROVE, "approve-status-test"));
         plans.save(proposed.transitionTo(ActionPlanStatus.APPROVED));
 
         GovernedActionPlan approved = plans.findById(proposed.id()).orElseThrow();
@@ -208,6 +217,19 @@ class ActionPlanPersistenceIT extends PostgreSqlIntegrationTestSupport {
 
     private ActionPlan plan(List<ActionPlanStep> steps) {
         return plan(newPlanId(), PROPOSED_AT, "steward-1", steps);
+    }
+
+    private static ActionPlanApproval decision(
+            GovernedActionPlan plan, ApprovalDecision decision, String requestKey) {
+        return new ActionPlanApproval(
+                plan.id(),
+                plan.version(),
+                plan.hash(),
+                decision,
+                new ApprovalRequestKey(requestKey),
+                "synthetic-human-approver",
+                PROPOSED_AT.plusSeconds(10),
+                "Synthetic integration-test decision");
     }
 
     private ActionPlan plan(
