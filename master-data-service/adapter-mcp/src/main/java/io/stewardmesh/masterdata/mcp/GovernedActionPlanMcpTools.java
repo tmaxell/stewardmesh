@@ -42,6 +42,7 @@ import io.stewardmesh.masterdata.domain.organization.SiteAssignmentId;
 import io.stewardmesh.masterdata.domain.organization.SitePurpose;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -219,22 +220,22 @@ public final class GovernedActionPlanMcpTools {
 
     private static void requireShape(
             ProposedStep step, boolean source, boolean partyVersion, boolean site, boolean assignment) {
-        boolean valid = (source == (step.source() != null))
+        boolean party = source || partyVersion;
+        boolean siteCreation = site && !assignment;
+        boolean valid = (party == (step.partyId() != null))
+                && (source == (step.source() != null))
                 && (partyVersion == (step.expectedPartyVersion() != null))
                 && (site == (step.siteId() != null))
-                && (assignment == (step.assignmentId() != null));
+                && (siteCreation == (step.addressId() != null))
+                && (siteCreation == (step.procurementBusinessUnitId() != null))
+                && (assignment == (step.assignmentId() != null))
+                && (assignment == (step.expectedSiteVersion() != null))
+                && (assignment == (step.clientBusinessUnitId() != null))
+                && (assignment == (step.purposes() != null))
+                && (assignment == (step.validFrom() != null))
+                && (assignment || step.validTo() == null);
         if (!valid) {
             throw new IllegalArgumentException("step fields do not match action type " + step.type());
-        }
-        if (!site && step.addressId() != null || !site && step.procurementBusinessUnitId() != null) {
-            throw new IllegalArgumentException("site creation fields do not match action type " + step.type());
-        }
-        if (!assignment && (step.expectedSiteVersion() != null
-                || step.clientBusinessUnitId() != null
-                || step.purposes() != null
-                || step.validFrom() != null
-                || step.validTo() != null)) {
-            throw new IllegalArgumentException("assignment fields do not match action type " + step.type());
         }
     }
 
@@ -390,7 +391,7 @@ public final class GovernedActionPlanMcpTools {
                     assign.validTo().ifPresent(date -> values.put("validTo", date.toString()));
                 }
             }
-            return Map.copyOf(values);
+            return Collections.unmodifiableMap(new LinkedHashMap<>(values));
         }
 
         private static String sourceKey(SourceRecordIdentity source) {

@@ -1,5 +1,6 @@
 package io.stewardmesh.masterdata.mcp;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -191,15 +192,41 @@ class GovernedActionPlanMcpToolsTest {
     @Test
     void rejectsFieldsThatDoNotBelongToTheSelectedActionShape() {
         authenticate("agent-801", GovernedActionPlanMcpTools.PROPOSE_SCOPE);
-        var invalid = createPartyInput();
-        invalid = new GovernedActionPlanMcpTools.ProposedStep(
-                invalid.sequence(), invalid.type(), invalid.partyId(), invalid.source(),
-                invalid.expectedPartyVersion(), SITE_ID.value().toString(), invalid.addressId(),
-                invalid.procurementBusinessUnitId(), invalid.assignmentId(),
-                invalid.expectedSiteVersion(), invalid.clientBusinessUnitId(), invalid.purposes(),
-                invalid.validFrom(), invalid.validTo(), invalid.reasonCode(), invalid.evidence());
+        var partyWithSite = createPartyInput();
+        partyWithSite = new GovernedActionPlanMcpTools.ProposedStep(
+                partyWithSite.sequence(), partyWithSite.type(), partyWithSite.partyId(), partyWithSite.source(),
+                partyWithSite.expectedPartyVersion(), SITE_ID.value().toString(), partyWithSite.addressId(),
+                partyWithSite.procurementBusinessUnitId(), partyWithSite.assignmentId(),
+                partyWithSite.expectedSiteVersion(), partyWithSite.clientBusinessUnitId(), partyWithSite.purposes(),
+                partyWithSite.validFrom(), partyWithSite.validTo(), partyWithSite.reasonCode(), partyWithSite.evidence());
+        var siteWithoutAddress = proposalSteps().get(2);
+        siteWithoutAddress = new GovernedActionPlanMcpTools.ProposedStep(
+                siteWithoutAddress.sequence(), siteWithoutAddress.type(), siteWithoutAddress.partyId(),
+                siteWithoutAddress.source(), siteWithoutAddress.expectedPartyVersion(), siteWithoutAddress.siteId(),
+                null, siteWithoutAddress.procurementBusinessUnitId(), siteWithoutAddress.assignmentId(),
+                siteWithoutAddress.expectedSiteVersion(), siteWithoutAddress.clientBusinessUnitId(),
+                siteWithoutAddress.purposes(), siteWithoutAddress.validFrom(), siteWithoutAddress.validTo(),
+                siteWithoutAddress.reasonCode(), siteWithoutAddress.evidence());
+        var assignmentWithParty = proposalSteps().get(3);
+        assignmentWithParty = new GovernedActionPlanMcpTools.ProposedStep(
+                assignmentWithParty.sequence(), assignmentWithParty.type(), PARTY_ID.value().toString(),
+                assignmentWithParty.source(), assignmentWithParty.expectedPartyVersion(), assignmentWithParty.siteId(),
+                assignmentWithParty.addressId(), assignmentWithParty.procurementBusinessUnitId(),
+                assignmentWithParty.assignmentId(), assignmentWithParty.expectedSiteVersion(),
+                assignmentWithParty.clientBusinessUnitId(), assignmentWithParty.purposes(),
+                assignmentWithParty.validFrom(), assignmentWithParty.validTo(), assignmentWithParty.reasonCode(),
+                assignmentWithParty.evidence());
 
-        GovernedActionPlanMcpTools.ProposedStep rejected = invalid;
+        GovernedActionPlanMcpTools.ProposedStep rejectedParty = partyWithSite;
+        GovernedActionPlanMcpTools.ProposedStep rejectedSite = siteWithoutAddress;
+        GovernedActionPlanMcpTools.ProposedStep rejectedAssignment = assignmentWithParty;
+        assertAll(
+                () -> assertRejectedShape(rejectedParty),
+                () -> assertRejectedShape(rejectedSite),
+                () -> assertRejectedShape(rejectedAssignment));
+    }
+
+    private static void assertRejectedShape(GovernedActionPlanMcpTools.ProposedStep rejected) {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> tools().createOnboardingProposal(new GovernedActionPlanMcpTools.ProposalRequest(
