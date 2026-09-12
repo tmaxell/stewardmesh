@@ -1,6 +1,7 @@
 package io.stewardmesh.masterdata.persistence.jpa;
 
 import io.stewardmesh.masterdata.application.port.out.ActionPlanRepository;
+import io.stewardmesh.masterdata.application.port.out.ActionPlanApprovalRepository;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
 import io.stewardmesh.masterdata.application.port.out.BlockMatchCandidates;
 import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
@@ -50,6 +51,12 @@ import tools.jackson.databind.ObjectMapper;
 @EntityScan(basePackageClasses = IntakeArtifactEntity.class)
 @EnableJpaRepositories(basePackageClasses = SpringDataIntakeArtifactRepository.class)
 public class IntakePersistenceConfiguration {
+
+    @Bean
+    ActionPlanApprovalRepository actionPlanApprovalRepository(
+            SpringDataActionPlanApprovalRepository repository) {
+        return new JpaActionPlanApprovalRepository(repository);
+    }
 
     @Bean
     JpaActionPlanHeaderStore actionPlanHeaderStore(SpringDataActionPlanRepository repository) {

@@ -31,6 +31,7 @@ class PostgresIntakeSchemaIT extends PostgreSqlIntegrationTestSupport {
         assertEquals(
                 List.of(
                         "action_plan",
+                        "action_plan_approval",
                         "action_plan_step",
                         "action_plan_step_evidence",
                         "business_unit",
