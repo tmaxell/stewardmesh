@@ -24,7 +24,6 @@ import io.stewardmesh.masterdata.domain.model.SupplierPartyId;
 import io.stewardmesh.masterdata.domain.model.SupplierSiteId;
 import io.stewardmesh.masterdata.domain.organization.BusinessUnit;
 import io.stewardmesh.masterdata.domain.organization.SiteAssignment;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -84,11 +83,11 @@ public final class ActionPlanSimulationService implements SimulateActionPlan {
         var addressIds = new LinkedHashSet<SupplierAddressId>();
         var businessUnitIds = new LinkedHashSet<BusinessUnitId>();
         var sourceIdentities = new LinkedHashSet<SourceRecordIdentity>();
-        var assignmentContexts = new LinkedHashSet<AssignmentContext>();
+        var proposedAssignments = new LinkedHashSet<SiteAssignment>();
 
         plan.steps().forEach(step -> collect(
                 step, partyIds, siteIds, addressIds, businessUnitIds, sourceIdentities,
-                assignmentContexts));
+                proposedAssignments));
 
         return new SimulationSnapshot(
                 versions(partyIds, this::partyVersion),
@@ -96,7 +95,7 @@ public final class ActionPlanSimulationService implements SimulateActionPlan {
                 storedAddresses(addressIds),
                 storedBusinessUnits(businessUnitIds),
                 storedSourceRecords(sourceIdentities),
-                storedAssignments(assignmentContexts));
+                storedAssignments(proposedAssignments));
     }
 
     private static void collect(
@@ -106,7 +105,7 @@ public final class ActionPlanSimulationService implements SimulateActionPlan {
             Set<SupplierAddressId> addressIds,
             Set<BusinessUnitId> businessUnitIds,
             Set<SourceRecordIdentity> sourceIdentities,
-            Set<AssignmentContext> assignmentContexts) {
+            Set<SiteAssignment> proposedAssignments) {
         switch (step) {
             case CreateSupplierPartyStep create -> {
                 partyIds.add(create.partyId());
@@ -125,8 +124,14 @@ public final class ActionPlanSimulationService implements SimulateActionPlan {
             case AssignSupplierSiteStep assign -> {
                 siteIds.add(assign.siteId());
                 businessUnitIds.add(assign.clientBusinessUnitId());
-                assignmentContexts.add(
-                        new AssignmentContext(assign.siteId(), assign.clientBusinessUnitId()));
+                proposedAssignments.add(new SiteAssignment(
+                        assign.assignmentId(),
+                        assign.siteId(),
+                        assign.clientBusinessUnitId(),
+                        assign.purposes(),
+                        assign.validFrom(),
+                        assign.validTo(),
+                        1));
             }
         }
     }
@@ -173,14 +178,12 @@ public final class ActionPlanSimulationService implements SimulateActionPlan {
         return stored;
     }
 
-    private List<SiteAssignment> storedAssignments(Set<AssignmentContext> contexts) {
-        var stored = new ArrayList<SiteAssignment>();
-        contexts.forEach(context -> stored.addAll(assignments.findForSiteAndClient(
-                context.siteId(), context.clientBusinessUnitId(), SiteAssignmentQuery.MAX_LIMIT)));
-        return stored;
+    private List<SiteAssignment> storedAssignments(Set<SiteAssignment> proposed) {
+        var stored = new LinkedHashSet<SiteAssignment>();
+        proposed.forEach(candidate -> {
+            assignments.findById(candidate.id()).ifPresent(stored::add);
+            stored.addAll(assignments.findConflicts(candidate, SiteAssignmentQuery.MAX_LIMIT));
+        });
+        return List.copyOf(stored);
     }
-
-    /** One site/client pair whose existing authorizations a proposed assignment could collide with. */
-    private record AssignmentContext(
-            SupplierSiteId siteId, BusinessUnitId clientBusinessUnitId) {}
 }

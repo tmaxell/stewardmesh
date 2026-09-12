@@ -91,7 +91,8 @@ class ActionPlanSimulationServiceTest {
                         "party:" + PARTY.value(),
                         "site:" + SITE.value(),
                         "source:supplier-61",
-                        "assignments:" + SITE.value()),
+                        "assignment-id:" + assign(2).assignmentId().value(),
+                        "assignment-conflicts:" + SITE.value()),
                 reads);
     }
 
@@ -208,13 +209,21 @@ class ActionPlanSimulationServiceTest {
         SiteAssignmentRepository assignments = new SiteAssignmentRepository() {
             @Override
             public Optional<SiteAssignment> findById(SiteAssignmentId id) {
-                throw new AssertionError("simulation reads authorizations by context");
+                reads.add("assignment-id:" + id.value());
+                return storedAssignments.stream()
+                        .filter(stored -> stored.id().equals(id))
+                        .findFirst();
             }
 
             @Override
             public List<SiteAssignment> findForSiteAndClient(
                     SupplierSiteId siteId, BusinessUnitId clientBusinessUnitId, int limit) {
-                reads.add("assignments:" + siteId.value());
+                throw new AssertionError("simulation must query exact conflicts");
+            }
+
+            @Override
+            public List<SiteAssignment> findConflicts(SiteAssignment candidate, int limit) {
+                reads.add("assignment-conflicts:" + candidate.siteId().value());
                 return storedAssignments;
             }
 

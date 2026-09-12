@@ -14,5 +14,8 @@ public interface SiteAssignmentRepository {
     List<SiteAssignment> findForSiteAndClient(
             SupplierSiteId siteId, BusinessUnitId clientBusinessUnitId, int limit);
 
+    /** Returns only assignments whose purpose and effective interval overlap the candidate. */
+    List<SiteAssignment> findConflicts(SiteAssignment candidate, int limit);
+
     SiteAssignment save(SiteAssignment assignment);
 }
