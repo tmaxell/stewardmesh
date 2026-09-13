@@ -4,6 +4,7 @@ import io.stewardmesh.masterdata.application.port.in.DecideActionPlan;
 import io.stewardmesh.masterdata.application.port.in.ExecuteActionPlan;
 import io.stewardmesh.masterdata.application.port.in.GetActionPlan;
 import io.stewardmesh.masterdata.application.port.in.ProposeActionPlan;
+import io.stewardmesh.masterdata.application.port.in.ProfileIntakeArtifact;
 import io.stewardmesh.masterdata.application.port.in.SimulateActionPlan;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
@@ -29,7 +30,16 @@ public class McpToolConfiguration {
     }
 
     @Bean
-    ToolCallbackProvider governedActionPlanToolCallbacks(GovernedActionPlanMcpTools tools) {
-        return MethodToolCallbackProvider.builder().toolObjects(tools).build();
+    IntakeProfilingMcpTools intakeProfilingMcpTools(ProfileIntakeArtifact profileIntakeArtifact) {
+        return new IntakeProfilingMcpTools(profileIntakeArtifact);
+    }
+
+    @Bean
+    ToolCallbackProvider masterDataToolCallbacks(
+            GovernedActionPlanMcpTools governedTools,
+            IntakeProfilingMcpTools profilingTools) {
+        return MethodToolCallbackProvider.builder()
+                .toolObjects(governedTools, profilingTools)
+                .build();
     }
 }
