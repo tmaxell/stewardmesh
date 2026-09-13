@@ -25,7 +25,7 @@ class PublishedSupervisorContractTest {
             contract = json.readTree(input);
         }
 
-        assertEquals("1.0.0", contract.path("contractVersion").asString());
+        assertEquals("1.1.0", contract.path("contractVersion").asString());
         assertEquals(
                 Arrays.stream(AgentPhase.values()).map(Enum::name).toList(),
                 contract.path("workflow").path("phases").valueStream()
@@ -49,5 +49,24 @@ class PublishedSupervisorContractTest {
             ReferenceStewardAgent.allowedTools(phase).forEach(tool ->
                     assertFalse(prohibited.contains(tool)));
         }
+        JsonNode safety = contract.path("safetyBoundary");
+        assertEquals("UNTRUSTED_TOOL_EVIDENCE", safety.path("toolEvidenceClassification").asString());
+        assertEquals("CANONICAL_JSON", safety.path("toolEvidenceEncoding").asString());
+        assertEquals("SHA-256", safety.path("toolEvidenceIntegrity").asString());
+        JsonNode limits = safety.path("limits");
+        assertEquals(AgentSafetyBoundary.MAX_EVIDENCE_BYTES, limits.path("maximumBytesPerResult").asInt());
+        assertEquals(
+                AgentSafetyBoundary.MAX_TOTAL_EVIDENCE_BYTES,
+                limits.path("maximumBytesPerContext").asInt());
+        assertEquals(AgentSafetyBoundary.MAX_NESTING_DEPTH, limits.path("maximumNestingDepth").asInt());
+        assertEquals(
+                AgentSafetyBoundary.MAX_CONTAINER_ENTRIES,
+                limits.path("maximumContainerEntries").asInt());
+        assertEquals(AgentSafetyBoundary.MAX_TOTAL_NODES, limits.path("maximumNodesPerResult").asInt());
+        assertEquals(AgentSafetyBoundary.MAX_KEY_CHARACTERS, limits.path("maximumKeyCharacters").asInt());
+        assertEquals(
+                AgentSafetyBoundary.MAX_STRING_CHARACTERS,
+                limits.path("maximumStringCharacters").asInt());
+        assertFalse(TrustedAgentPolicy.standard().instruction().contains("toolResult"));
     }
 }
