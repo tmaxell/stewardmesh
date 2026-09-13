@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:stewardmesh:agent:reference-supervisor:v1",
+  "contractVersion": "1.0.0",
+  "workflow": {
+    "phases": ["PROFILE", "IDENTIFY", "PLAN", "VERIFY"],
+    "transitions": [
+      "PROFILE->IDENTIFY",
+      "IDENTIFY->PLAN",
+      "PLAN->VERIFY"
+    ],
+    "maximumToolCalls": 16,
+    "requiresObservationBeforeAdvance": true
+  },
+  "capabilities": {
+    "PROFILE": ["profile_intake_artifact"],
+    "IDENTIFY": [
+      "get_import_status",
+      "find_party_candidates",
+      "find_site_candidates",
+      "explain_match"
+    ],
+    "PLAN": [
+      "create_onboarding_proposal",
+      "simulate_onboarding_plan"
+    ],
+    "VERIFY": [
+      "get_action_plan",
+      "verify_onboarding_result"
+    ]
+  },
+  "prohibitedCapabilities": [
+    "approve_action_plan",
+    "reject_action_plan",
+    "execute_approved_plan"
+  ],
+  "trace": {
+    "includes": [
+      "phase",
+      "toolName",
+      "decisionCode",
+      "toolResult"
+    ],
+    "excludes": [
+      "hiddenReasoning",
+      "accessToken",
+      "databaseCredentials",
+      "brokerCredentials"
+    ]
+  }
+}
