@@ -25,6 +25,8 @@ import io.stewardmesh.masterdata.application.port.in.GetActionPlan;
 import io.stewardmesh.masterdata.application.port.in.ProposeActionPlan;
 import io.stewardmesh.masterdata.application.port.in.SimulateActionPlan;
 import io.stewardmesh.masterdata.application.port.in.SynchronizeBusinessUnit;
+import io.stewardmesh.masterdata.application.port.in.ConsumeReferenceDataEvent;
+import io.stewardmesh.masterdata.application.port.in.PublishMasterDataEvents;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ai.tool.ToolCallbackProvider;
@@ -96,6 +98,12 @@ class StewardMeshApplicationIT {
     private ExecuteActionPlan executeActionPlan;
 
     @Autowired
+    private ConsumeReferenceDataEvent consumeReferenceDataEvent;
+
+    @Autowired
+    private PublishMasterDataEvents publishMasterDataEvents;
+
+    @Autowired
     private ToolCallbackProvider toolCallbacks;
 
     @Autowired
@@ -125,6 +133,8 @@ class StewardMeshApplicationIT {
         assertNotNull(simulateActionPlan);
         assertNotNull(decideActionPlan);
         assertNotNull(executeActionPlan);
+        assertNotNull(consumeReferenceDataEvent);
+        assertNotNull(publishMasterDataEvents);
         assertEquals(6, toolCallbacks.getToolCallbacks().length);
     }
 

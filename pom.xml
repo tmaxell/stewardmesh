@@ -26,6 +26,7 @@
         <module>master-data-service/adapter-persistence</module>
         <module>master-data-service/adapter-rest</module>
         <module>master-data-service/adapter-mcp</module>
+        <module>master-data-service/adapter-messaging</module>
         <module>master-data-service/bootstrap-master-service</module>
     </modules>
 
@@ -99,6 +100,11 @@
             <dependency>
                 <groupId>io.stewardmesh</groupId>
                 <artifactId>adapter-mcp</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.stewardmesh</groupId>
+                <artifactId>adapter-messaging</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

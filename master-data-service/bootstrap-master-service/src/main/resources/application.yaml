@@ -65,6 +65,18 @@ logging:
       console: logstash
 
 stewardmesh:
+  messaging:
+    enabled: ${STEWARDMESH_MESSAGING_ENABLED:false}
+    endpoint: ${STEWARDMESH_SQS_ENDPOINT:http://localhost:${LOCALSTACK_PORT:4566}}
+    region: ${AWS_REGION:eu-central-1}
+    source-events-queue: ${STEWARDMESH_SOURCE_EVENTS_QUEUE:stewardmesh-source-events}
+    master-events-queue: ${STEWARDMESH_MASTER_EVENTS_QUEUE:stewardmesh-master-events}
+    allowed-producers: ${STEWARDMESH_ALLOWED_EVENT_PRODUCERS:synthetic-distributor,nsi-distribution-service}
+    maximum-message-bytes: 65536
+    inbound-batch-size: 10
+    outbound-batch-size: 50
+    claim-timeout: 5m
+    poll-delay: 2s
   intake-storage:
     bucket: ${STEWARDMESH_INTAKE_BUCKET:stewardmesh-intake}
     endpoint: ${STEWARDMESH_S3_ENDPOINT:http://localhost:${LOCALSTACK_PORT:4566}}
