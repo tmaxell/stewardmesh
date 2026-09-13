@@ -18,6 +18,8 @@ Default endpoints:
 - S3 bucket: `stewardmesh-intake`;
 - SQS queues: `stewardmesh-source-events` and `stewardmesh-master-events`.
 
+The local `.env.example` enables the bounded messaging scheduler. It consumes only the configured synthetic/distributor producers from the source queue and publishes committed master-data outbox events to the master queue. Disable it with `STEWARDMESH_MESSAGING_ENABLED=false` when inspecting queues manually.
+
 The checked-in credentials and OAuth client secret are local-only placeholders. Override them in the ignored `.env` file and never reuse them in a shared environment.
 
 Stop containers without removing data:

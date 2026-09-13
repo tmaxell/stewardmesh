@@ -56,6 +56,8 @@ Validated imports can be handed to a resumable matching use case. It rejects sta
 
 Phase 3 now includes governed action plans through execution and a Streamable HTTP MCP boundary. Six versioned tools keep reading, simulation, proposal, human approval/rejection and execution as separate calls. Exact plan version/hash bindings, per-tool OAuth scopes and server-derived caller identities prevent a model from granting itself authority; execution commits master effects, audit and outbox atomically and is idempotent per authenticated subject and request key.
 
+The integration boundary now relays canonical v1 envelopes through SQS. Transactional inbox deduplication, payload fingerprints, monotonic business-unit reference versions, redacted quarantine evidence and explicit own-event suppression prevent replay or relay loops from producing a second effect. The outbox publisher claims bounded PostgreSQL batches and records broker acknowledgements while preserving at-least-once semantics.
+
 ## Build and run
 
 Java 25 is required. Maven is supplied by the repository wrapper.

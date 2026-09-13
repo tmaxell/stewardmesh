@@ -6,11 +6,12 @@ Authoritative modular MDM service. Active foundation modules:
 - `master-application` — use cases and inbound/outbound ports.
 - `adapter-rest` — system REST API and OpenAPI.
 - `adapter-mcp` — scoped Spring AI MCP tools over application use cases.
+- `adapter-messaging` — canonical event codec plus real AWS SQS ingress/egress.
 - `adapter-persistence` — JPA/JDBC and Flyway.
 - `adapter-ingestion-xlsx` — bounded Apache POI intake.
 - `bootstrap-master-service` — Spring Boot composition root.
 
-`adapter-messaging` and `steward-agent` remain inactive until their first working vertical slices. Dependencies point inward: domain <- application <- adapters <- bootstrap.
+`steward-agent` remains inactive until its first working vertical slice. Dependencies point inward: domain <- application <- adapters <- bootstrap.
 
 The identity-resolution domain distinguishes party and supplier-site candidates, retains bounded feature-level evidence, and applies explicit versioned thresholds. Authoritative identifier conflicts can never produce an automatic link.
 
@@ -39,5 +40,7 @@ The `APPROVE` boundary records one immutable human decision and advances the pla
 The `EXECUTE` boundary re-simulates an exactly version/hash-bound approved plan before applying its sealed steps. Source-bearing steps require one versioned match-evaluation evidence reference and reuse the existing projection use case; site creation verifies the exact site materialized by that projection, and assignment reuses the organization policy. Master mutations, the immutable execution receipt, one redacted audit record, one broker-neutral outbox event per effect and the final `EXECUTED` transition commit atomically. A server-derived subject plus idempotency key returns the same receipt on retry and conflicts if reused for different content; no broker or model call occurs inside the transaction.
 
 The Streamable HTTP MCP endpoint at `/mcp` exposes separate `READ`, `SIMULATE`, `PROPOSE`, `APPROVE` and `EXECUTE` tools. Spring Security authenticates every HTTP request; each tool independently requires its least-privilege OAuth scope and derives the actor subject from server context. Caller identity and authorization flags never appear in model-visible schemas. Results are bounded to the plan's 50-step maximum and omit supplier attribute values, approver/executor identities and audit reasons. The v1 schema catalogue is `contracts/mcp/governed-action-plan-tools-v1.json`.
+
+Messaging uses a versioned canonical envelope and broker-neutral application ports. SQS ingress authorizes configured producers, bounds message size, and acknowledges only after the PostgreSQL transaction has recorded inbox plus business outcome. Stable event identity and payload fingerprint distinguish replay from conflicting reuse; returned `STEWARDMESH` events are durably loop-suppressed, while invalid or non-monotonic reference changes are quarantined under stable reason codes. Outbox publication claims bounded batches with `FOR UPDATE SKIP LOCKED`, reclaims abandoned leases and records the broker message id after successful SQS delivery. Delivery remains explicitly at least once.
 
 `IdentityResolutionEndToEndIT` is the Phase 2 acceptance proof. Against disposable PostgreSQL it verifies five supplier outcomes, idempotent reruns, stewardship routing, golden provenance, secured REST reads, metrics and the latency smoke threshold without introducing production-only test hooks.
