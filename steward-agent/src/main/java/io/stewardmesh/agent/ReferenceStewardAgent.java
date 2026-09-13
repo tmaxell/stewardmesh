@@ -16,6 +16,7 @@ public final class ReferenceStewardAgent {
 
     private final McpCapabilityClient capabilities;
     private final StewardReasoner reasoner;
+    private final AgentSafetyBoundary safetyBoundary;
     private final int maximumToolCalls;
 
     public ReferenceStewardAgent(McpCapabilityClient capabilities, StewardReasoner reasoner) {
@@ -28,6 +29,7 @@ public final class ReferenceStewardAgent {
             int maximumToolCalls) {
         this.capabilities = Objects.requireNonNull(capabilities, "capabilities must not be null");
         this.reasoner = Objects.requireNonNull(reasoner, "reasoner must not be null");
+        this.safetyBoundary = new AgentSafetyBoundary();
         if (maximumToolCalls < 1 || maximumToolCalls > DEFAULT_MAX_TOOL_CALLS) {
             throw new IllegalArgumentException("maximumToolCalls must be between 1 and 16");
         }
@@ -42,7 +44,8 @@ public final class ReferenceStewardAgent {
         while (true) {
             int remaining = maximumToolCalls - observations.size();
             AgentDirective directive = Objects.requireNonNull(
-                    reasoner.next(new AgentSnapshot(goal, phase, observations, remaining)),
+                    reasoner.next(safetyBoundary.prepare(
+                            goal, phase, observations, remaining, ALLOWED_TOOLS.get(phase))),
                     "reasoner directive must not be null");
             if (directive instanceof AgentDirective.CallTool call) {
                 if (remaining == 0) {
