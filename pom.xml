@@ -28,6 +28,7 @@
         <module>master-data-service/adapter-mcp</module>
         <module>master-data-service/adapter-messaging</module>
         <module>master-data-service/bootstrap-master-service</module>
+        <module>steward-agent</module>
     </modules>
 
     <properties>
