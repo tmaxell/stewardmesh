@@ -4,7 +4,8 @@ import io.stewardmesh.masterdata.application.port.out.ActionPlanRepository;
 import io.stewardmesh.masterdata.application.port.out.ActionPlanApprovalRepository;
 import io.stewardmesh.masterdata.application.port.out.ActionPlanExecutionRepository;
 import io.stewardmesh.masterdata.application.port.out.AuditEventRepository;
-import io.stewardmesh.masterdata.application.port.out.OutboxEventRepository;
+import io.stewardmesh.masterdata.application.port.out.InboxEventRepository;
+import io.stewardmesh.masterdata.application.port.out.QuarantineEventRepository;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
 import io.stewardmesh.masterdata.application.port.out.BlockMatchCandidates;
 import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
@@ -28,6 +29,8 @@ import io.stewardmesh.masterdata.persistence.jdbc.JdbcActionPlanRepository;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcActionPlanExecutionRepository;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcAuditEventRepository;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcOutboxEventRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcInboxEventRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcQuarantineEventRepository;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordWriter;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchCandidateBlocker;
@@ -69,9 +72,19 @@ public class IntakePersistenceConfiguration {
     }
 
     @Bean
-    OutboxEventRepository outboxEventRepository(
+    JdbcOutboxEventRepository jdbcOutboxEventRepository(
             JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
         return new JdbcOutboxEventRepository(jdbcTemplate, objectMapper);
+    }
+
+    @Bean
+    InboxEventRepository inboxEventRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcInboxEventRepository(jdbcTemplate);
+    }
+
+    @Bean
+    QuarantineEventRepository quarantineEventRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcQuarantineEventRepository(jdbcTemplate);
     }
 
     @Bean
