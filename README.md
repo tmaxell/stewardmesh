@@ -54,12 +54,16 @@ Every candidate decision is stored immutably with its ruleset, outcome, score, h
 
 Validated imports can be handed to a resumable matching use case. It rejects stale source versions before processing, reuses already persisted evaluations after a retry, and finishes as `MATCHED` or `REVIEW_REQUIRED`. Review/conflict outcomes create one immutable, idempotent stewardship case per source version and scoring ruleset. Read-only OAuth-protected endpoints expose bounded status, candidates, explanations and current golden records without bypassing the application layer.
 
+Phase 3 now includes governed action plans through execution and a Streamable HTTP MCP boundary. Six versioned tools keep reading, simulation, proposal, human approval/rejection and execution as separate calls. Exact plan version/hash bindings, per-tool OAuth scopes and server-derived caller identities prevent a model from granting itself authority; execution commits master effects, audit and outbox atomically and is idempotent per authenticated subject and request key.
+
+The integration boundary now relays canonical v1 envelopes through SQS. Transactional inbox deduplication, payload fingerprints, monotonic business-unit reference versions, redacted quarantine evidence and explicit own-event suppression prevent replay or relay loops from producing a second effect. The outbox publisher claims bounded PostgreSQL batches and records broker acknowledgements while preserving at-least-once semantics.
+
 ## Build and run
 
 Java 25 is required. Maven is supplied by the repository wrapper.
 
 ```bash
-./scripts/verify-phase-2.sh
+./scripts/verify-phase-3.sh
 ./scripts/run-local.sh
 ```
 
@@ -87,6 +91,19 @@ The Phase 2 E2E proof starts a disposable PostgreSQL instance and exercises the 
 ```
 
 Run `./scripts/verify-phase-2.sh` for the complete repository gate, including both black-box E2E flows, aggregate coverage, Compose validation and Git hygiene checks. The same post-build gates are mandatory in pull-request CI. Java 25 and Docker are required; all demo identities are generated synthetic fixtures.
+
+## Phase 3 reproducible demo
+
+The Phase 3 acceptance proof synchronizes a versioned synthetic business unit from SQS, deduplicates its replay, and then drives one immutable onboarding plan through scoped MCP proposal, simulation, independent human approval and idempotent execution. It verifies the committed master projection, receipt, audit and outbox in PostgreSQL, publishes the canonical master event to a real LocalStack queue, and proves that a returned owned event is durably loop-suppressed without a second business effect.
+
+```bash
+./mvnw --batch-mode --no-transfer-progress \
+  -pl master-data-service/bootstrap-master-service -am verify \
+  -Dit.test=Phase3GovernedExecutionEndToEndIT \
+  -Dfailsafe.failIfNoSpecifiedTests=false
+```
+
+Run `./scripts/verify-phase-3.sh` for the complete repository gate. All Phase 3 fixtures, identities, reference events and supplier values are synthetic.
 
 Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes. Matching metric labels use only bounded entity/outcome/conflict dimensions. Console logs use structured JSON and never include workbook rows or supplier identifiers.
 

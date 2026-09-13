@@ -22,6 +22,25 @@ spring:
       resourceserver:
         jwt:
           jwk-set-uri: ${STEWARDMESH_JWK_SET_URI:http://localhost:8081/realms/stewardmesh/protocol/openid-connect/certs}
+  ai:
+    mcp:
+      server:
+        protocol: STREAMABLE
+        type: SYNC
+        name: stewardmesh-master-data
+        version: 1.0.0
+        instructions: "Use READ and SIMULATE before PROPOSE; approval and execution require separate authorized calls."
+        request-timeout: 10s
+        annotation-scanner:
+          enabled: false
+        capabilities:
+          tool: true
+          resource: false
+          prompt: false
+          completion: false
+        resource-change-notification: false
+        prompt-change-notification: false
+        tool-change-notification: false
 
 springdoc:
   api-docs:
@@ -46,6 +65,18 @@ logging:
       console: logstash
 
 stewardmesh:
+  messaging:
+    enabled: ${STEWARDMESH_MESSAGING_ENABLED:false}
+    endpoint: ${STEWARDMESH_SQS_ENDPOINT:http://localhost:${LOCALSTACK_PORT:4566}}
+    region: ${AWS_REGION:eu-central-1}
+    source-events-queue: ${STEWARDMESH_SOURCE_EVENTS_QUEUE:stewardmesh-source-events}
+    master-events-queue: ${STEWARDMESH_MASTER_EVENTS_QUEUE:stewardmesh-master-events}
+    allowed-producers: ${STEWARDMESH_ALLOWED_EVENT_PRODUCERS:synthetic-distributor,nsi-distribution-service,master-data-service}
+    maximum-message-bytes: 65536
+    inbound-batch-size: 10
+    outbound-batch-size: 50
+    claim-timeout: 5m
+    poll-delay: 2s
   intake-storage:
     bucket: ${STEWARDMESH_INTAKE_BUCKET:stewardmesh-intake}
     endpoint: ${STEWARDMESH_S3_ENDPOINT:http://localhost:${LOCALSTACK_PORT:4566}}

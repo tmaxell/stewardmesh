@@ -1,5 +1,11 @@
 package io.stewardmesh.masterdata.persistence.jpa;
 
+import io.stewardmesh.masterdata.application.port.out.ActionPlanRepository;
+import io.stewardmesh.masterdata.application.port.out.ActionPlanApprovalRepository;
+import io.stewardmesh.masterdata.application.port.out.ActionPlanExecutionRepository;
+import io.stewardmesh.masterdata.application.port.out.AuditEventRepository;
+import io.stewardmesh.masterdata.application.port.out.InboxEventRepository;
+import io.stewardmesh.masterdata.application.port.out.QuarantineEventRepository;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
 import io.stewardmesh.masterdata.application.port.out.BlockMatchCandidates;
 import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
@@ -17,6 +23,14 @@ import io.stewardmesh.masterdata.application.port.out.StoreGoldenRecordProjectio
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordProjection;
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordState;
 import io.stewardmesh.masterdata.application.port.out.ValidationIssueReader;
+import io.stewardmesh.masterdata.application.port.out.BusinessUnitRepository;
+import io.stewardmesh.masterdata.application.port.out.SiteAssignmentRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcActionPlanRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcActionPlanExecutionRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcAuditEventRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcOutboxEventRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcInboxEventRepository;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcQuarantineEventRepository;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordWriter;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceRecordLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcMatchCandidateBlocker;
@@ -30,6 +44,7 @@ import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordProjectionStor
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordProjectionLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordStateLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcValidationIssueReader;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcSiteAssignmentRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.Bean;
@@ -45,6 +60,59 @@ import tools.jackson.databind.ObjectMapper;
 @EntityScan(basePackageClasses = IntakeArtifactEntity.class)
 @EnableJpaRepositories(basePackageClasses = SpringDataIntakeArtifactRepository.class)
 public class IntakePersistenceConfiguration {
+
+    @Bean
+    ActionPlanExecutionRepository actionPlanExecutionRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcActionPlanExecutionRepository(jdbcTemplate);
+    }
+
+    @Bean
+    AuditEventRepository auditEventRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcAuditEventRepository(jdbcTemplate);
+    }
+
+    @Bean
+    JdbcOutboxEventRepository jdbcOutboxEventRepository(
+            JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
+        return new JdbcOutboxEventRepository(jdbcTemplate, objectMapper);
+    }
+
+    @Bean
+    InboxEventRepository inboxEventRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcInboxEventRepository(jdbcTemplate);
+    }
+
+    @Bean
+    QuarantineEventRepository quarantineEventRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcQuarantineEventRepository(jdbcTemplate);
+    }
+
+    @Bean
+    ActionPlanApprovalRepository actionPlanApprovalRepository(
+            SpringDataActionPlanApprovalRepository repository) {
+        return new JpaActionPlanApprovalRepository(repository);
+    }
+
+    @Bean
+    JpaActionPlanHeaderStore actionPlanHeaderStore(SpringDataActionPlanRepository repository) {
+        return new JpaActionPlanHeaderStore(repository);
+    }
+
+    @Bean
+    ActionPlanRepository actionPlanRepository(
+            JdbcTemplate jdbcTemplate, JpaActionPlanHeaderStore headerStore) {
+        return new JdbcActionPlanRepository(jdbcTemplate, headerStore);
+    }
+
+    @Bean
+    BusinessUnitRepository businessUnitRepository(SpringDataBusinessUnitRepository repository) {
+        return new JpaBusinessUnitRepository(repository);
+    }
+
+    @Bean
+    SiteAssignmentRepository siteAssignmentRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcSiteAssignmentRepository(jdbcTemplate);
+    }
 
     @Bean
     JpaGoldenRecordMetadataStore goldenRecordMetadataStore(

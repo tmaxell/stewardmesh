@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:stewardmesh:mcp:governed-action-plan-tools:v1",
+  "contractVersion": "1.0.0",
+  "transport": {
+    "protocol": "STREAMABLE_HTTP",
+    "endpoint": "/mcp",
+    "authentication": "OAuth2 bearer token on every request"
+  },
+  "tools": [
+    {
+      "name": "get_action_plan",
+      "class": "READ",
+      "requiredScope": "mdm.supplier.read",
+      "sideEffect": "NONE",
+      "inputSchema": {
+        "type": "object",
+        "required": ["planId"],
+        "properties": {"planId": {"$ref": "#/$defs/uuid"}},
+        "additionalProperties": false
+      },
+      "outputSchema": {"$ref": "#/$defs/planResult"}
+    },
+    {
+      "name": "simulate_onboarding_plan",
+      "class": "SIMULATE",
+      "requiredScope": "mdm.supplier.read",
+      "sideEffect": "NONE",
+      "inputSchema": {"$ref": "#/$defs/boundPlan"},
+      "outputSchema": {"$ref": "#/$defs/simulationResult"}
+    },
+    {
+      "name": "create_onboarding_proposal",
+      "class": "PROPOSE",
+      "requiredScope": "mdm.steward.propose",
+      "sideEffect": "REVIEW_OBJECT_ONLY",
+      "inputSchema": {
+        "type": "object",
+        "required": ["importId", "steps"],
+        "properties": {
+          "importId": {"$ref": "#/$defs/uuid"},
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {"$ref": "#/$defs/proposedStep"}
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {"$ref": "#/$defs/planResult"}
+    },
+    {
+      "name": "approve_action_plan",
+      "class": "APPROVE",
+      "requiredScope": "mdm.steward.approve",
+      "sideEffect": "IMMUTABLE_HUMAN_DECISION",
+      "inputSchema": {"$ref": "#/$defs/decision"},
+      "outputSchema": {"$ref": "#/$defs/approvalResult"}
+    },
+    {
+      "name": "reject_action_plan",
+      "class": "APPROVE",
+      "requiredScope": "mdm.steward.approve",
+      "sideEffect": "IMMUTABLE_HUMAN_DECISION",
+      "inputSchema": {"$ref": "#/$defs/decision"},
+      "outputSchema": {"$ref": "#/$defs/approvalResult"}
+    },
+    {
+      "name": "execute_approved_plan",
+      "class": "EXECUTE",
+      "requiredScope": "mdm.plan.execute",
+      "sideEffect": "ATOMIC_MASTER_DATA_MUTATION",
+      "inputSchema": {"$ref": "#/$defs/execution"},
+      "outputSchema": {"$ref": "#/$defs/executionResult"}
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "boundedReason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "boundPlan": {
+      "type": "object",
+      "required": ["planId", "expectedVersion", "expectedHash"],
+      "properties": {
+        "planId": {"$ref": "#/$defs/uuid"},
+        "expectedVersion": {"$ref": "#/$defs/version"},
+        "expectedHash": {"$ref": "#/$defs/hash"}
+      },
+      "additionalProperties": false
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "planId",
+        "expectedVersion",
+        "expectedHash",
+        "idempotencyKey",
+        "reason"
+      ],
+      "properties": {
+        "planId": {"$ref": "#/$defs/uuid"},
+        "expectedVersion": {"$ref": "#/$defs/version"},
+        "expectedHash": {"$ref": "#/$defs/hash"},
+        "idempotencyKey": {"$ref": "#/$defs/idempotencyKey"},
+        "reason": {"$ref": "#/$defs/boundedReason"}
+      },
+      "additionalProperties": false
+    },
+    "execution": {
+      "$ref": "#/$defs/decision"
+    },
+    "source": {
+      "type": "object",
+      "required": ["system", "recordId", "version"],
+      "properties": {
+        "system": {"type": "string", "minLength": 1, "maxLength": 64},
+        "recordId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "version": {"$ref": "#/$defs/version"}
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["type", "reference", "version"],
+      "properties": {
+        "type": {
+          "enum": [
+            "SOURCE_RECORD",
+            "MATCH_EVALUATION",
+            "GOLDEN_RECORD",
+            "BUSINESS_UNIT_REFERENCE"
+          ]
+        },
+        "reference": {"type": "string", "minLength": 1, "maxLength": 256},
+        "version": {"$ref": "#/$defs/version"}
+      },
+      "additionalProperties": false
+    },
+    "proposedStep": {
+      "type": "object",
+      "description": "Exactly the fields for the selected action type are accepted; the adapter rejects ambiguous shapes.",
+      "required": ["sequence", "type", "reasonCode", "evidence"],
+      "properties": {
+        "sequence": {"type": "integer", "minimum": 1, "maximum": 50},
+        "type": {
+          "enum": [
+            "CREATE_SUPPLIER_PARTY",
+            "LINK_SOURCE_RECORD",
+            "CREATE_SUPPLIER_SITE",
+            "ASSIGN_SUPPLIER_SITE"
+          ]
+        },
+        "partyId": {"$ref": "#/$defs/uuid"},
+        "source": {"$ref": "#/$defs/source"},
+        "expectedPartyVersion": {"$ref": "#/$defs/version"},
+        "siteId": {"$ref": "#/$defs/uuid"},
+        "addressId": {"$ref": "#/$defs/uuid"},
+        "procurementBusinessUnitId": {"$ref": "#/$defs/uuid"},
+        "assignmentId": {"$ref": "#/$defs/uuid"},
+        "expectedSiteVersion": {"$ref": "#/$defs/version"},
+        "clientBusinessUnitId": {"$ref": "#/$defs/uuid"},
+        "purposes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["PURCHASING", "SOURCING", "PAY", "SHIP_FROM"]}
+        },
+        "validFrom": {"type": "string", "format": "date"},
+        "validTo": {"type": "string", "format": "date"},
+        "reasonCode": {"type": "string", "minLength": 1, "maxLength": 64},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/evidence"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "planResult": {
+      "type": "object",
+      "description": "Bounded to at most 50 steps and contains identifiers/evidence references, never supplier attribute values."
+    },
+    "simulationResult": {
+      "type": "object",
+      "description": "Returns stable precondition codes only; no supplier attribute values."
+    },
+    "approvalResult": {
+      "type": "object",
+      "description": "Returns the exact plan binding, decision, status and server time; caller identity is omitted."
+    },
+    "executionResult": {
+      "type": "object",
+      "description": "Bounded to at most 50 effect identities; audit reason and caller identity are omitted."
+    }
+  }
+}
