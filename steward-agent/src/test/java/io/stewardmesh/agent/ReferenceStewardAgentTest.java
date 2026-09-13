@@ -136,7 +136,7 @@ class ReferenceStewardAgentTest {
         assertEquals("TOOL_NOT_ALLOWED_IN_PHASE", exception.code());
         assertFalse(afterToolCall.policy().instruction().contains(injection));
         assertEquals("UNTRUSTED_TOOL_EVIDENCE", afterToolCall.evidence().getFirst().trustClassification());
-        assertEquals(injection, afterToolCall.evidence().getFirst().content().get("header"));
+        assertTrue(afterToolCall.evidence().getFirst().contentJson().contains(injection));
         assertFalse(afterToolCall.allowedTools().contains("execute_approved_plan"));
     }
 
