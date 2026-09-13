@@ -29,6 +29,7 @@ import io.stewardmesh.masterdata.application.port.out.SiteAssignmentRepository;
 import io.stewardmesh.masterdata.domain.actionplan.ActionPlanApprovalPolicy;
 import io.stewardmesh.masterdata.domain.actionplan.ActionPlanExecutionPolicy;
 import io.stewardmesh.masterdata.domain.actionplan.ActionPlanSimulator;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.util.UUID;
 import org.springframework.context.annotation.Bean;
@@ -48,9 +49,13 @@ class ActionPlanUseCaseConfiguration {
             ActionPlanApprovalRepository approvals,
             ApplicationTransaction transaction,
             ActionPlanApprovalPolicy policy,
-            Clock applicationClock) {
-        return new ActionPlanApprovalService(
-                actionPlans, approvals, transaction, policy, applicationClock);
+            Clock applicationClock,
+            MeterRegistry meterRegistry) {
+        return new MeteredDecideActionPlan(
+                new ActionPlanApprovalService(
+                        actionPlans, approvals, transaction, policy, applicationClock),
+                meterRegistry,
+                applicationClock);
     }
 
     @Bean
@@ -121,9 +126,13 @@ class ActionPlanUseCaseConfiguration {
             ApplicationTransaction transaction,
             ExecutionIdentityGenerator identities,
             ActionPlanExecutionPolicy policy,
-            Clock applicationClock) {
-        return new ActionPlanExecutionService(
-                actionPlans, approvals, executions, simulations, stepApplier, auditEvents,
-                outboxEvents, transaction, identities, policy, applicationClock);
+            Clock applicationClock,
+            MeterRegistry meterRegistry) {
+        return new MeteredExecuteActionPlan(
+                new ActionPlanExecutionService(
+                        actionPlans, approvals, executions, simulations, stepApplier, auditEvents,
+                        outboxEvents, transaction, identities, policy, applicationClock),
+                meterRegistry,
+                applicationClock);
     }
 }

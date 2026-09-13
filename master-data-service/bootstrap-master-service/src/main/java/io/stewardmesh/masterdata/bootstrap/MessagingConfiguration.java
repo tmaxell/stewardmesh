@@ -17,6 +17,7 @@ import io.stewardmesh.masterdata.messaging.sqs.SqsCanonicalEventCodec;
 import io.stewardmesh.masterdata.messaging.sqs.SqsMasterDataEventPublisher;
 import io.stewardmesh.masterdata.messaging.sqs.SqsReferenceDataConsumer;
 import java.net.URI;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
@@ -57,8 +58,10 @@ class MessagingConfiguration {
     MasterDataEventPublisher masterDataEventPublisher(
             SqsClient sqs,
             SqsCanonicalEventCodec codec,
-            @Value("${stewardmesh.messaging.master-events-queue}") String queue) {
-        return new SqsMasterDataEventPublisher(sqs, queue, codec);
+            @Value("${stewardmesh.messaging.master-events-queue}") String queue,
+            MeterRegistry meterRegistry) {
+        return new MeteredMasterDataEventPublisher(
+                new SqsMasterDataEventPublisher(sqs, queue, codec), meterRegistry);
     }
 
     @Bean
@@ -73,8 +76,12 @@ class MessagingConfiguration {
             QuarantineEventRepository quarantine,
             ReferenceDataEventApplier applier,
             ApplicationTransaction transaction,
-            Clock clock) {
-        return new ReferenceDataEventConsumerService(inbox, quarantine, applier, transaction, clock);
+            Clock clock,
+            MeterRegistry meterRegistry) {
+        return new MeteredConsumeReferenceDataEvent(
+                new ReferenceDataEventConsumerService(inbox, quarantine, applier, transaction, clock),
+                meterRegistry,
+                clock);
     }
 
     @Bean

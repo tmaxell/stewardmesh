@@ -107,7 +107,11 @@ The Phase 3 acceptance proof synchronizes a versioned synthetic business unit fr
 
 Run `./scripts/verify-phase-3.sh` for the complete repository gate. All Phase 3 fixtures, identities, reference events and supplier values are synthetic.
 
-Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes. Matching metric labels use only bounded entity/outcome/conflict dimensions. Console logs use structured JSON and never include workbook rows or supplier identifiers.
+Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes.
+
+Governed execution and messaging are instrumented at the composition root rather than inside the use cases, so a metric can never roll back a business transaction. Counters separate approvals from rejections and first decisions from idempotent replays, time and count executions with their committed effects, and record inbox ingress by outcome and reason, event lag, and broker delivery success or failure per event type. Structured logs report quarantine, loop suppression and failed delivery with the event id, event type and reason code.
+
+Every label is drawn from a closed vocabulary. Subjects, plan hashes, approval reasons, event identifiers and producers are never labels, and tests assert the resulting label cardinality. Console logs use structured JSON and never include workbook rows or supplier identifiers.
 
 ## Local dependencies
 
