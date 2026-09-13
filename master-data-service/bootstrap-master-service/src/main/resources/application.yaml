@@ -71,7 +71,7 @@ stewardmesh:
     region: ${AWS_REGION:eu-central-1}
     source-events-queue: ${STEWARDMESH_SOURCE_EVENTS_QUEUE:stewardmesh-source-events}
     master-events-queue: ${STEWARDMESH_MASTER_EVENTS_QUEUE:stewardmesh-master-events}
-    allowed-producers: ${STEWARDMESH_ALLOWED_EVENT_PRODUCERS:synthetic-distributor,nsi-distribution-service}
+    allowed-producers: ${STEWARDMESH_ALLOWED_EVENT_PRODUCERS:synthetic-distributor,nsi-distribution-service,master-data-service}
     maximum-message-bytes: 65536
     inbound-batch-size: 10
     outbound-batch-size: 50

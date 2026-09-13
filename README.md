@@ -63,7 +63,7 @@ The integration boundary now relays canonical v1 envelopes through SQS. Transact
 Java 25 is required. Maven is supplied by the repository wrapper.
 
 ```bash
-./scripts/verify-phase-2.sh
+./scripts/verify-phase-3.sh
 ./scripts/run-local.sh
 ```
 
@@ -91,6 +91,19 @@ The Phase 2 E2E proof starts a disposable PostgreSQL instance and exercises the 
 ```
 
 Run `./scripts/verify-phase-2.sh` for the complete repository gate, including both black-box E2E flows, aggregate coverage, Compose validation and Git hygiene checks. The same post-build gates are mandatory in pull-request CI. Java 25 and Docker are required; all demo identities are generated synthetic fixtures.
+
+## Phase 3 reproducible demo
+
+The Phase 3 acceptance proof synchronizes a versioned synthetic business unit from SQS, deduplicates its replay, and then drives one immutable onboarding plan through scoped MCP proposal, simulation, independent human approval and idempotent execution. It verifies the committed master projection, receipt, audit and outbox in PostgreSQL, publishes the canonical master event to a real LocalStack queue, and proves that a returned owned event is durably loop-suppressed without a second business effect.
+
+```bash
+./mvnw --batch-mode --no-transfer-progress \
+  -pl master-data-service/bootstrap-master-service -am verify \
+  -Dit.test=Phase3GovernedExecutionEndToEndIT \
+  -Dfailsafe.failIfNoSpecifiedTests=false
+```
+
+Run `./scripts/verify-phase-3.sh` for the complete repository gate. All Phase 3 fixtures, identities, reference events and supplier values are synthetic.
 
 Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes. Matching metric labels use only bounded entity/outcome/conflict dimensions. Console logs use structured JSON and never include workbook rows or supplier identifiers.
 
