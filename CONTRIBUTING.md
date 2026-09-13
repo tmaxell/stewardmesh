@@ -50,7 +50,8 @@ A PR is mergeable when:
 - migrations are forward-only and tested against PostgreSQL;
 - APIs/events/MCP schemas remain versioned and documented;
 - logs and metrics do not expose sensitive values;
-- repository README files, contracts and implementation do not contradict one another.
+- repository README files, contracts and implementation do not contradict one another;
+- the branch history, commit trailers and PR description contain no tooling attribution, vendor footers or addresses that do not belong to the author.
 
 Use the aggregate JaCoCo report as review evidence for production changes. The Phase 1 baseline target is at least 80% coverage of changed production lines; material branches of the domain state machine require 100% path coverage. A justified exception belongs in the PR description rather than in disabled tests or coverage exclusions.
 
@@ -71,6 +72,34 @@ chore(build): add Maven quality plugins
 Commits must not mix unrelated formatting or generated-file churn with behavior changes.
 
 Commit each significant completed logical block after running its relevant verification. Prefer a small reviewable series of coherent commits over accumulating the entire feature in one commit. Do not manufacture micro-commits or separate changes that only compile, test or make sense together.
+
+## Authorship and tooling provenance
+
+The repository records the people accountable for a change and nothing else. Authoring tools, assistants and their vendors are implementation details of a contributor's workstation and must never appear in the published history.
+
+Never add, in commit subjects, commit bodies, commit trailers, branch names, pull request titles or descriptions, review comments, code comments, documentation or any tracked file:
+
+- the name of an AI assistant, model or its vendor, in any spelling or casing;
+- generated-by, co-authored-by, assisted-by or similar attribution to a tool;
+- advertising footers, badges or links added automatically by a tool;
+- email addresses that do not belong to the actual author, including tool-vendor `noreply` addresses, placeholder addresses and addresses invented for a trailer; a contributor's own GitHub-provided `users.noreply.github.com` address is their real address and remains allowed;
+- accounts, handles or bot identities that are not real repository contributors.
+
+Rules:
+
+1. `user.name` and `user.email` must identify the real author for every commit. Verify with `git log --format='%an <%ae>'` before opening a pull request.
+2. `Co-Authored-By` is reserved for a human who actually co-authored the change and uses that person's own address.
+3. Commit messages describe the change and its reasoning, never how the change was produced.
+4. Remove any tool-injected trailer or footer before committing; amend or rebase the branch if one has already been committed.
+5. The same rule applies to pull request bodies, issue comments and release notes.
+
+Check a branch before review:
+
+```bash
+git log --format='%an <%ae>%n%B' origin/dev..HEAD | grep -inE 'co-authored|generated with|assisted|noreply@' || true
+```
+
+An empty result is the expected outcome.
 
 ## Baseline verification
 
