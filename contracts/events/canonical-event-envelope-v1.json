@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stewardmesh.local/contracts/events/canonical-event-envelope-v1.json",
+  "title": "StewardMesh canonical event envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId", "eventType", "schemaVersion", "subjectType", "subjectId",
+    "entityVersion", "originSystem", "producer", "transportSystem", "occurredAt",
+    "publishedAt", "correlationId", "causationId", "traceId", "dataClassification", "payload"
+  ],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "eventType": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "schemaVersion": { "const": 1 },
+    "subjectType": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "subjectId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "entityVersion": { "type": "integer", "minimum": 1 },
+    "originSystem": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "producer": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "transportSystem": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "publishedAt": { "type": "string", "format": "date-time" },
+    "correlationId": { "type": "string", "format": "uuid" },
+    "causationId": { "type": ["string", "null"], "format": "uuid" },
+    "traceId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "dataClassification": { "const": "INTERNAL" },
+    "payload": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": { "minLength": 1, "maxLength": 64 },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 512 }
+    }
+  }
+}
