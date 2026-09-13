@@ -22,6 +22,9 @@ spring:
       resourceserver:
         jwt:
           jwk-set-uri: ${STEWARDMESH_JWK_SET_URI:http://localhost:8081/realms/stewardmesh/protocol/openid-connect/certs}
+          # Refuses a token the issuer minted for a different service. JwtAudienceGuard fails
+          # startup when this is empty, because Spring then installs no audience validator at all.
+          audiences: ${STEWARDMESH_JWT_AUDIENCE:stewardmesh-master-data}
   ai:
     mcp:
       server:

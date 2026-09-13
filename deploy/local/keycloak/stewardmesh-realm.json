@@ -50,6 +50,25 @@
       "attributes": {
         "include.in.token.scope": "true"
       }
+    },
+    {
+      "name": "stewardmesh-audience",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "stewardmesh-master-data-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "stewardmesh-master-data",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
     }
   ],
   "clients": [
@@ -66,7 +85,8 @@
       "defaultClientScopes": [
         "supplier-import.write",
         "supplier-import.read",
-        "identity-resolution.read"
+        "identity-resolution.read",
+        "stewardmesh-audience"
       ]
     },
     {
@@ -81,7 +101,8 @@
       "publicClient": false,
       "defaultClientScopes": [
         "mdm.supplier.read",
-        "mdm.steward.propose"
+        "mdm.steward.propose",
+        "stewardmesh-audience"
       ]
     },
     {
@@ -96,7 +117,8 @@
       "publicClient": false,
       "defaultClientScopes": [
         "mdm.supplier.read",
-        "mdm.steward.approve"
+        "mdm.steward.approve",
+        "stewardmesh-audience"
       ]
     },
     {
@@ -111,7 +133,8 @@
       "publicClient": false,
       "defaultClientScopes": [
         "mdm.supplier.read",
-        "mdm.plan.execute"
+        "mdm.plan.execute",
+        "stewardmesh-audience"
       ]
     }
   ]
