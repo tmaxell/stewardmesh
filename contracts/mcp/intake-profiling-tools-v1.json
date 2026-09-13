@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:stewardmesh:mcp:intake-profiling-tools:v1",
+  "contractVersion": "1.0.0",
+  "transport": {
+    "protocol": "STREAMABLE_HTTP",
+    "endpoint": "/mcp",
+    "authentication": "OAuth2 bearer token on every request"
+  },
+  "tools": [
+    {
+      "name": "profile_intake_artifact",
+      "class": "READ",
+      "requiredScope": "mdm.supplier.read",
+      "sideEffect": "NONE",
+      "inputSchema": {
+        "type": "object",
+        "required": ["importId"],
+        "properties": {
+          "importId": {"type": "string", "format": "uuid"}
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "Bounded structural metadata and aggregate counts; never includes workbook row values.",
+        "required": [
+          "importId",
+          "artifactId",
+          "contractVersion",
+          "sheetName",
+          "dataRows",
+          "columns"
+        ],
+        "properties": {
+          "importId": {"type": "string", "format": "uuid"},
+          "artifactId": {"type": "string", "format": "uuid"},
+          "contractVersion": {"type": "string", "const": "1.1.0"},
+          "sheetName": {"type": "string", "const": "suppliers"},
+          "dataRows": {"type": "integer", "minimum": 0, "maximum": 5000},
+          "columns": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "required": [
+                "position",
+                "header",
+                "canonical",
+                "nonBlankValues",
+                "blankValues",
+                "formulaCells"
+              ],
+              "properties": {
+                "position": {"type": "integer", "minimum": 1, "maximum": 32},
+                "header": {"type": "string", "minLength": 1, "maxLength": 4096},
+                "canonical": {"type": "boolean"},
+                "nonBlankValues": {"type": "integer", "minimum": 0, "maximum": 5000},
+                "blankValues": {"type": "integer", "minimum": 0, "maximum": 5000},
+                "formulaCells": {"type": "integer", "minimum": 0, "maximum": 5000}
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,7 @@ import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
 @SpringBootTest
@@ -86,6 +88,9 @@ class SupplierIntakeEndToEndIT {
 
     @Autowired
     private S3Client s3;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @BeforeAll
     static void createBucket() {
@@ -131,6 +136,18 @@ class SupplierIntakeEndToEndIT {
         mockMvc.perform(get("/api/v1/supplier-imports/{id}/report", importId).with(readJwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalIssues").value(0));
+
+        var profile = new StreamableMcpTestClient(mockMvc, objectMapper).call(
+                "synthetic-profile-reader",
+                "mdm.supplier.read",
+                "profile_intake_artifact",
+                Map.of("importId", importId));
+        assertEquals(importId, profile.read("$.importId", String.class));
+        assertEquals("1.1.0", profile.read("$.contractVersion", String.class));
+        assertEquals(3, profile.read("$.dataRows", Integer.class));
+        assertEquals(14, profile.read("$.columns.length()", Integer.class));
+        assertTrue(profile.read("$.artifactId", String.class).matches("^[0-9a-f-]{36}$"));
+        assertTrue(!profile.jsonString().contains("Синтетик"));
 
         assertTrue(elapsed.compareTo(Duration.ofSeconds(15)) < 0, () -> "intake took " + elapsed);
         assertEquals(1, count("SELECT COUNT(*) FROM import_job WHERE source_system = ?", "E2E_VALID"));
