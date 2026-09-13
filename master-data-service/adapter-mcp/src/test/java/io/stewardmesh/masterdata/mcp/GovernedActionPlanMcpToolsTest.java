@@ -108,6 +108,7 @@ class GovernedActionPlanMcpToolsTest {
                 .findFirst()
                 .orElseThrow()
                 .inputSchema();
+        assertTrue(proposalSchema.contains("\"request\""));
         assertTrue(proposalSchema.contains("expectedPartyVersion"));
         assertTrue(proposalSchema.contains("evidence"));
     }
@@ -130,6 +131,7 @@ class GovernedActionPlanMcpToolsTest {
         assertTrue(contract.contains("\"requiredScope\": \"mdm.steward.propose\""));
         assertTrue(contract.contains("\"requiredScope\": \"mdm.steward.approve\""));
         assertTrue(contract.contains("\"requiredScope\": \"mdm.plan.execute\""));
+        assertTrue(contract.contains("\"required\": [\"request\"]"));
         assertFalse(contract.contains("authorizedToExecute"));
         assertFalse(contract.contains("proposedBySubject"));
     }

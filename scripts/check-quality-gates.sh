@@ -13,14 +13,45 @@ if [[ -n "$(git ls-files docs .agents)" ]]; then
   exit 1
 fi
 
+# One acceptance proof per delivered stage. A stage whose proof stops running must fail the gate
+# rather than pass quietly.
+FAILSAFE_REPORTS="master-data-service/bootstrap-master-service/target/failsafe-reports"
 for report in \
-  master-data-service/bootstrap-master-service/target/failsafe-reports/TEST-io.stewardmesh.masterdata.bootstrap.IdentityResolutionEndToEndIT.xml \
-  master-data-service/bootstrap-master-service/target/failsafe-reports/TEST-io.stewardmesh.masterdata.bootstrap.SupplierIntakeEndToEndIT.xml; do
+  "${FAILSAFE_REPORTS}/TEST-io.stewardmesh.masterdata.bootstrap.SupplierIntakeEndToEndIT.xml" \
+  "${FAILSAFE_REPORTS}/TEST-io.stewardmesh.masterdata.bootstrap.IdentityResolutionEndToEndIT.xml" \
+  "${FAILSAFE_REPORTS}/TEST-io.stewardmesh.masterdata.bootstrap.Phase3GovernedExecutionEndToEndIT.xml"; do
   [[ -f "${report}" ]] || {
     echo "Required E2E report was not generated: ${report}" >&2
     exit 1
   }
+  grep -q 'failures="0"' "${report}" && grep -q 'errors="0"' "${report}" || {
+    echo "Required E2E proof did not pass: ${report}" >&2
+    exit 1
+  }
 done
+
+# Every scope the published MCP contract requires must be obtainable from the local realm, or the
+# documented local stack cannot exercise the governed tools it ships.
+MISSING_SCOPES="$(python3 - <<'PYTHON'
+import json
+import sys
+
+contract = json.load(open("contracts/mcp/governed-action-plan-tools-v1.json"))
+realm = json.load(open("deploy/local/keycloak/stewardmesh-realm.json"))
+
+required = {tool["requiredScope"] for tool in contract["tools"]}
+declared = {scope["name"] for scope in realm["clientScopes"]}
+grantable = {scope for client in realm["clients"] for scope in client["defaultClientScopes"]}
+
+missing = sorted((required - declared) | (required - grantable))
+sys.stdout.write("\n".join(missing))
+PYTHON
+)"
+if [[ -n "${MISSING_SCOPES}" ]]; then
+  echo "The local Keycloak realm cannot grant MCP scopes required by the contract:" >&2
+  echo "${MISSING_SCOPES}" >&2
+  exit 1
+fi
 
 COVERAGE_CSV="master-data-service/bootstrap-master-service/target/site/jacoco-aggregate/jacoco.csv"
 [[ -f "${COVERAGE_CSV}" ]] || {

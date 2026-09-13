@@ -69,7 +69,9 @@ Java 25 is required. Maven is supplied by the repository wrapper.
 
 At startup, the service connects to PostgreSQL, applies the Flyway intake schema, validates its JPA mappings and configures immutable intake storage plus bounded supplier-workbook parsing. The supplier intake API is published under `/api/v1/supplier-imports`; its OpenAPI document is available at `/v3/api-docs`.
 
-The API is an OAuth2 resource server. Configure `STEWARDMESH_JWK_SET_URI` for the JWT issuer. Upload requires `supplier-import.write`; status and report reads require `supplier-import.read`. The local stack includes a development-only Keycloak realm and service account with all three API scopes; its placeholder credentials must never be reused outside a workstation.
+The API is an OAuth2 resource server. Configure `STEWARDMESH_JWK_SET_URI` for the JWT issuer. Upload requires `supplier-import.write`; status and report reads require `supplier-import.read`.
+
+The MCP endpoint at `/mcp` authorizes each tool separately: `mdm.supplier.read` for reads and simulation, `mdm.steward.propose`, `mdm.steward.approve` and `mdm.plan.execute` for the governed steps. The local Keycloak realm ships one service account per role — `stewardmesh-agent` (read, propose), `stewardmesh-steward` (read, approve) and `stewardmesh-executor` (read, execute) — alongside the `stewardmesh-local` REST client. Distinct subjects are what let the local stack demonstrate that a proposer cannot approve its own plan. A repository gate fails when the realm cannot grant a scope the published MCP contract requires. All these credentials are development-only placeholders and must never be reused outside a workstation.
 
 With the service running, exercise token acquisition, upload and idempotent replay in a second terminal:
 

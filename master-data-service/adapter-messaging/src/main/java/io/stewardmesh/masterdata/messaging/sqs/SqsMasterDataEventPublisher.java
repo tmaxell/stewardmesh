@@ -7,6 +7,8 @@ import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 
 public final class SqsMasterDataEventPublisher implements MasterDataEventPublisher {
+    static final String TRANSPORT_SYSTEM = "sqs";
+
     private final SqsClient sqs;
     private final String queue;
     private final SqsCanonicalEventCodec codec;
@@ -15,6 +17,11 @@ public final class SqsMasterDataEventPublisher implements MasterDataEventPublish
         this.sqs = Objects.requireNonNull(sqs, "sqs must not be null");
         this.queue = require(queue, "queue");
         this.codec = Objects.requireNonNull(codec, "codec must not be null");
+    }
+
+    @Override
+    public String transportSystem() {
+        return TRANSPORT_SYSTEM;
     }
 
     @Override
