@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class MessagingServicesTest {
@@ -72,6 +73,33 @@ class MessagingServicesTest {
         assertEquals(List.of(outboxEvent(1).eventId()), repository.published);
         assertEquals(List.of(outboxEvent(2).eventId()), repository.released);
         assertThrows(IllegalArgumentException.class, () -> service.execute(0));
+    }
+
+    @Test
+    void mapsBusinessUnitReferenceAndRejectsVersionGaps() {
+        var saved = new AtomicReference<io.stewardmesh.masterdata.domain.organization.BusinessUnit>();
+        var applier = new BusinessUnitReferenceEventApplier(
+                ignored -> { throw new io.stewardmesh.masterdata.application.organization.BusinessUnitNotFoundException(); },
+                unit -> { saved.set(unit); return unit; });
+        var envelope = copy(event(UUID.fromString("00000000-0000-0000-0000-000000000805"), "synthetic-nsi"),
+                Map.of("code", "SYNTHETIC_805", "displayName", "Synthetic Unit 805",
+                        "roles", "CLIENT,PROCUREMENT", "validFrom", "2026-09-13"));
+
+        applier.apply(new CanonicalEventEnvelope(
+                envelope.eventId(), BusinessUnitReferenceEventApplier.EVENT_TYPE, 1, "BUSINESS_UNIT",
+                "00000000-0000-0000-0000-000000000805", 1, envelope.originSystem(), envelope.producer(),
+                envelope.transportSystem(), envelope.occurredAt(), envelope.publishedAt(), envelope.correlationId(),
+                envelope.causationId(), envelope.traceId(), envelope.dataClassification(), envelope.payload()));
+        assertEquals("SYNTHETIC_805", saved.get().code().value());
+
+        var gap = new CanonicalEventEnvelope(
+                UUID.fromString("00000000-0000-0000-0000-000000000806"),
+                BusinessUnitReferenceEventApplier.EVENT_TYPE, 1, "BUSINESS_UNIT",
+                "00000000-0000-0000-0000-000000000806", 2, envelope.originSystem(), envelope.producer(),
+                envelope.transportSystem(), envelope.occurredAt(), envelope.publishedAt(), envelope.correlationId(),
+                envelope.causationId(), envelope.traceId(), envelope.dataClassification(), envelope.payload());
+        assertEquals("VERSION_GAP", assertThrows(ReferenceEventRejectedException.class,
+                () -> applier.apply(gap)).reasonCode());
     }
 
     private static ReferenceDataEventConsumerService consumer(

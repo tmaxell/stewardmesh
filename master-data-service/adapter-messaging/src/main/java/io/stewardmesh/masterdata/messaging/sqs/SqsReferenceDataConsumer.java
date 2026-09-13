@@ -11,7 +11,7 @@ import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 /** Bounded pull consumer; deletes only events durably resolved by the inbox use case. */
 public final class SqsReferenceDataConsumer {
     private final SqsClient sqs;
-    private final String queueUrl;
+    private final String queue;
     private final SqsCanonicalEventCodec codec;
     private final ConsumeReferenceDataEvent consumer;
     private final Set<String> allowedProducers;
@@ -19,13 +19,13 @@ public final class SqsReferenceDataConsumer {
 
     public SqsReferenceDataConsumer(
             SqsClient sqs,
-            String queueUrl,
+            String queue,
             SqsCanonicalEventCodec codec,
             ConsumeReferenceDataEvent consumer,
             Set<String> allowedProducers,
             int maximumBytes) {
         this.sqs = Objects.requireNonNull(sqs, "sqs must not be null");
-        this.queueUrl = require(queueUrl);
+        this.queue = require(queue);
         this.codec = Objects.requireNonNull(codec, "codec must not be null");
         this.consumer = Objects.requireNonNull(consumer, "consumer must not be null");
         this.allowedProducers = Set.copyOf(Objects.requireNonNull(allowedProducers, "allowedProducers must not be null"));
@@ -37,7 +37,7 @@ public final class SqsReferenceDataConsumer {
     public int receiveOnce(int batchSize) {
         if (batchSize < 1 || batchSize > 10) throw new IllegalArgumentException("batchSize must be between 1 and 10");
         var messages = sqs.receiveMessage(ReceiveMessageRequest.builder()
-                        .queueUrl(queueUrl).maxNumberOfMessages(batchSize).waitTimeSeconds(0).build())
+                        .queueUrl(queueUrl()).maxNumberOfMessages(batchSize).waitTimeSeconds(0).build())
                 .messages();
         int resolved = 0;
         for (var message : messages) {
@@ -46,14 +46,18 @@ public final class SqsReferenceDataConsumer {
             if (!allowedProducers.contains(envelope.producer())) continue;
             consumer.execute(envelope);
             sqs.deleteMessage(DeleteMessageRequest.builder()
-                    .queueUrl(queueUrl).receiptHandle(message.receiptHandle()).build());
+                    .queueUrl(queueUrl()).receiptHandle(message.receiptHandle()).build());
             resolved++;
         }
         return resolved;
     }
 
+    private String queueUrl() {
+        return queue.contains("://") ? queue : sqs.getQueueUrl(builder -> builder.queueName(queue)).queueUrl();
+    }
+
     private static String require(String value) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException("queueUrl must not be blank");
+        if (value == null || value.isBlank()) throw new IllegalArgumentException("queue must not be blank");
         return value;
     }
 }

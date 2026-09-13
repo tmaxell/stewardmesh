@@ -29,6 +29,7 @@ exec docker run --rm \
   -e POSTGRES_HOST=postgres \
   -e POSTGRES_PORT=5432 \
   -e STEWARDMESH_S3_ENDPOINT=http://localstack:4566 \
+  -e STEWARDMESH_SQS_ENDPOINT=http://localstack:4566 \
   -e STEWARDMESH_JWK_SET_URI=http://keycloak:8080/realms/stewardmesh/protocol/openid-connect/certs \
   -p 8080:8080 \
   -v "${REPOSITORY_ROOT}:/workspace:ro" \
