@@ -25,4 +25,16 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <testResources>
+            <testResource>
+                <directory>src/test/resources</directory>
+            </testResource>
+            <testResource>
+                <directory>../contracts/agent</directory>
+                <targetPath>contracts/agent</targetPath>
+            </testResource>
+        </testResources>
+    </build>
 </project>

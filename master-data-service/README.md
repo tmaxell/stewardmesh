@@ -11,7 +11,7 @@ Authoritative modular MDM service. Active foundation modules:
 - `adapter-ingestion-xlsx` — bounded Apache POI intake.
 - `bootstrap-master-service` — Spring Boot composition root.
 
-`steward-agent` remains inactive until its first working vertical slice. Dependencies point inward: domain <- application <- adapters <- bootstrap.
+The separate `steward-agent` module is active and depends on no master-data-service module. It consumes the service exclusively through authenticated MCP. Within the authoritative service, dependencies still point inward: domain <- application <- adapters <- bootstrap.
 
 The identity-resolution domain distinguishes party and supplier-site candidates, retains bounded feature-level evidence, and applies explicit versioned thresholds. Authoritative identifier conflicts can never produce an automatic link.
 
