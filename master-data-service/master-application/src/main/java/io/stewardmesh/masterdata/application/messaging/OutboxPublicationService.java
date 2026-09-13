@@ -43,7 +43,8 @@ public final class OutboxPublicationService implements PublishMasterDataEvents {
                 String messageId = publisher.publish(new CanonicalEventEnvelope(
                         event.eventId(), event.eventType(), event.schemaVersion(), event.subjectType(),
                         event.subjectId().toString(), event.entityVersion(), event.originSystem(), event.producer(),
-                        "sqs", event.occurredAt(), now, event.correlationId(), Optional.of(event.causationId()),
+                        publisher.transportSystem(), event.occurredAt(), now, event.correlationId(),
+                        Optional.of(event.causationId()),
                         event.correlationId().toString(), CanonicalEventEnvelope.DataClassification.INTERNAL,
                         event.payload()));
                 outbox.markPublished(event.eventId(), messageId, clock.instant());

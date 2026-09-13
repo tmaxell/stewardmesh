@@ -8,14 +8,6 @@ import io.stewardmesh.masterdata.application.messaging.CanonicalEventEnvelope.Da
 import io.stewardmesh.masterdata.application.port.in.PublishMasterDataEvents;
 import io.stewardmesh.masterdata.messaging.sqs.SqsCanonicalEventCodec;
 import io.stewardmesh.masterdata.messaging.sqs.SqsReferenceDataConsumer;
-import io.stewardmesh.masterdata.mcp.GovernedActionPlanMcpTools;
-import io.stewardmesh.masterdata.mcp.GovernedActionPlanMcpTools.BoundPlanRequest;
-import io.stewardmesh.masterdata.mcp.GovernedActionPlanMcpTools.DecisionRequest;
-import io.stewardmesh.masterdata.mcp.GovernedActionPlanMcpTools.EvidenceInput;
-import io.stewardmesh.masterdata.mcp.GovernedActionPlanMcpTools.ExecutionRequest;
-import io.stewardmesh.masterdata.mcp.GovernedActionPlanMcpTools.ProposalRequest;
-import io.stewardmesh.masterdata.mcp.GovernedActionPlanMcpTools.ProposedStep;
-import io.stewardmesh.masterdata.mcp.GovernedActionPlanMcpTools.SourceInput;
 import java.nio.charset.StandardCharsets;
 import java.net.URI;
 import java.sql.Timestamp;
@@ -24,21 +16,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
@@ -54,9 +44,11 @@ import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
 import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
+import tools.jackson.databind.ObjectMapper;
 
 @Testcontainers
 @SpringBootTest(properties = "stewardmesh.messaging.enabled=false")
+@AutoConfigureMockMvc
 @Import(Phase3GovernedExecutionEndToEndIT.SqsTestConfiguration.class)
 class Phase3GovernedExecutionEndToEndIT {
 
@@ -77,10 +69,13 @@ class Phase3GovernedExecutionEndToEndIT {
             .waitingFor(Wait.forHttp("/_localstack/health").forStatusCode(200));
 
     @Autowired
-    private GovernedActionPlanMcpTools tools;
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private SqsClient sqs;
@@ -116,73 +111,97 @@ class Phase3GovernedExecutionEndToEndIT {
                 () -> "synthetic-distributor,master-data-service");
     }
 
-    @AfterEach
-    void clearSecurityContext() {
-        SecurityContextHolder.clearContext();
-    }
-
     @Test
-    void executesOneSealedPlanExactlyOnceAcrossTheGovernedMcpBoundary() {
+    void executesOneSealedPlanExactlyOnceAcrossTheGovernedMcpBoundary() throws Exception {
         UUID businessUnitId = synchronizeReferenceDataExactlyOnce();
         UUID importId = seedValidatedSyntheticSource();
         UUID partyId = stablePartyId();
+        var mcp = new StreamableMcpTestClient(mockMvc, objectMapper);
 
-        authenticate("synthetic-agent", "mdm.steward.propose");
-        var proposed = tools.createOnboardingProposal(new ProposalRequest(
-                importId.toString(),
-                List.of(new ProposedStep(
-                        1,
-                        "CREATE_SUPPLIER_PARTY",
-                        partyId.toString(),
-                        new SourceInput(SOURCE_SYSTEM, SOURCE_RECORD_ID, 1),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        "NO_MATCH_NEW_PARTY",
-                        List.of(
-                                new EvidenceInput(
-                                        "SOURCE_RECORD", SOURCE_SYSTEM + ":" + SOURCE_RECORD_ID, 1),
-                                new EvidenceInput("MATCH_EVALUATION", MATCH_RULESET, 1))))));
+        var proposed = mcp.call(
+                "synthetic-agent",
+                "mdm.steward.propose",
+                "create_onboarding_proposal",
+                requestArgument(Map.of(
+                        "importId",
+                        importId.toString(),
+                        "steps",
+                        List.of(Map.of(
+                                "sequence",
+                                1,
+                                "type",
+                                "CREATE_SUPPLIER_PARTY",
+                                "partyId",
+                                partyId.toString(),
+                                "source",
+                                Map.of(
+                                        "system", SOURCE_SYSTEM,
+                                        "recordId", SOURCE_RECORD_ID,
+                                        "version", 1),
+                                "reasonCode",
+                                "NO_MATCH_NEW_PARTY",
+                                "evidence",
+                                List.of(
+                                        Map.of(
+                                                "type",
+                                                "SOURCE_RECORD",
+                                                "reference",
+                                                SOURCE_SYSTEM + ":" + SOURCE_RECORD_ID,
+                                                "version",
+                                                1),
+                                        Map.of(
+                                                "type",
+                                                "MATCH_EVALUATION",
+                                                "reference",
+                                                MATCH_RULESET,
+                                                "version",
+                                                1)))))));
+        String planId = proposed.read("$.planId", String.class);
+        long planVersion = proposed.read("$.version", Number.class).longValue();
+        String planHash = proposed.read("$.hash", String.class);
+        Map<String, Object> exactPlan = Map.of(
+                "planId", planId,
+                "expectedVersion", planVersion,
+                "expectedHash", planHash);
 
-        authenticate("synthetic-reader", "mdm.supplier.read");
-        var simulated = tools.simulateOnboardingPlan(
-                new BoundPlanRequest(proposed.planId(), proposed.version(), proposed.hash()));
-        assertEquals("EXECUTABLE", simulated.outcome());
+        var simulated = mcp.call(
+                "synthetic-reader",
+                "mdm.supplier.read",
+                "simulate_onboarding_plan",
+                requestArgument(exactPlan));
+        assertEquals("EXECUTABLE", simulated.read("$.outcome", String.class));
 
-        authenticate("synthetic-human", "mdm.steward.approve");
-        var approved = tools.approveActionPlan(new DecisionRequest(
-                proposed.planId(),
-                proposed.version(),
-                proposed.hash(),
-                "phase3-approval-1",
-                "Synthetic evidence reviewed"));
-        assertEquals("APPROVED", approved.status());
+        var approved = mcp.call(
+                "synthetic-human",
+                "mdm.steward.approve",
+                "approve_action_plan",
+                requestArgument(decision(
+                        exactPlan, "phase3-approval-1", "Synthetic evidence reviewed")));
+        assertEquals("APPROVED", approved.read("$.status", String.class));
 
-        authenticate("synthetic-executor", "mdm.plan.execute");
-        var request = new ExecutionRequest(
-                proposed.planId(),
-                proposed.version(),
-                proposed.hash(),
-                "phase3-execution-1",
-                "Execute approved synthetic onboarding");
-        var first = tools.executeApprovedPlan(request);
-        var replay = tools.executeApprovedPlan(request);
+        Map<String, Object> executionRequest = decision(
+                exactPlan, "phase3-execution-1", "Execute approved synthetic onboarding");
+        var first = mcp.call(
+                "synthetic-executor",
+                "mdm.plan.execute",
+                "execute_approved_plan",
+                requestArgument(executionRequest));
+        var replay = mcp.call(
+                "synthetic-executor",
+                "mdm.plan.execute",
+                "execute_approved_plan",
+                requestArgument(executionRequest));
+        String executionId = first.read("$.executionId", String.class);
+        String correlationId = first.read("$.correlationId", String.class);
 
-        assertEquals(first, replay);
-        assertEquals(1, first.effects().size());
-        assertEquals("SupplierCreated", first.effects().getFirst().eventType());
-        assertEquals("EXECUTED", text("SELECT status FROM action_plan WHERE plan_id = ?", uuid(proposed.planId())));
-        assertEquals(1, count("SELECT COUNT(*) FROM action_plan_execution WHERE plan_id = ?", uuid(proposed.planId())));
-        assertEquals(1, count("SELECT COUNT(*) FROM action_plan_execution_effect WHERE execution_id = ?", uuid(first.executionId())));
-        assertEquals(1, count("SELECT COUNT(*) FROM audit_event WHERE plan_id = ?", uuid(proposed.planId())));
-        assertEquals(1, count("SELECT COUNT(*) FROM outbox_event WHERE correlation_id = ?", uuid(first.correlationId())));
+        assertEquals(first.jsonString(), replay.jsonString());
+        assertEquals(1, first.<List<?>>read("$.effects").size());
+        assertEquals("SupplierCreated", first.read("$.effects[0].eventType", String.class));
+        assertEquals("EXECUTED", text("SELECT status FROM action_plan WHERE plan_id = ?", uuid(planId)));
+        assertEquals(1, count("SELECT COUNT(*) FROM action_plan_execution WHERE plan_id = ?", uuid(planId)));
+        assertEquals(1, count("SELECT COUNT(*) FROM action_plan_execution_effect WHERE execution_id = ?", uuid(executionId)));
+        assertEquals(1, count("SELECT COUNT(*) FROM audit_event WHERE plan_id = ?", uuid(planId)));
+        assertEquals(1, count("SELECT COUNT(*) FROM outbox_event WHERE correlation_id = ?", uuid(correlationId)));
         assertEquals(1, count("SELECT COUNT(*) FROM golden_record_version WHERE entity_type = 'PARTY' AND entity_id = ?", partyId));
         assertEquals(1, count("SELECT COUNT(*) FROM source_association WHERE party_id = ?", partyId));
 
@@ -268,6 +287,18 @@ class Phase3GovernedExecutionEndToEndIT {
         return sqs.getQueueUrl(builder -> builder.queueName(queue)).queueUrl();
     }
 
+    private static Map<String, Object> decision(
+            Map<String, Object> exactPlan, String idempotencyKey, String reason) {
+        var request = new java.util.LinkedHashMap<>(exactPlan);
+        request.put("idempotencyKey", idempotencyKey);
+        request.put("reason", reason);
+        return Map.copyOf(request);
+    }
+
+    private static Map<String, Object> requestArgument(Map<String, ?> request) {
+        return Map.of("request", request);
+    }
+
     private UUID seedValidatedSyntheticSource() {
         UUID artifactId = UUID.randomUUID();
         UUID importId = UUID.randomUUID();
@@ -312,13 +343,6 @@ class Phase3GovernedExecutionEndToEndIT {
     private static UUID stablePartyId() {
         String identity = SOURCE_SYSTEM + '\u001f' + SOURCE_RECORD_ID + '\u001f' + 1 + '\u001f' + "party";
         return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static void authenticate(String subject, String scope) {
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                subject,
-                "n/a",
-                List.of(new SimpleGrantedAuthority("SCOPE_" + scope))));
     }
 
     private int count(String sql, Object argument) {

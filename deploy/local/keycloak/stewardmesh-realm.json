@@ -5,17 +5,70 @@
     {
       "name": "supplier-import.write",
       "protocol": "openid-connect",
-      "attributes": { "include.in.token.scope": "true" }
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
     },
     {
       "name": "supplier-import.read",
       "protocol": "openid-connect",
-      "attributes": { "include.in.token.scope": "true" }
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
     },
     {
       "name": "identity-resolution.read",
       "protocol": "openid-connect",
-      "attributes": { "include.in.token.scope": "true" }
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
+    },
+    {
+      "name": "mdm.supplier.read",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
+    },
+    {
+      "name": "mdm.steward.propose",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
+    },
+    {
+      "name": "mdm.steward.approve",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
+    },
+    {
+      "name": "mdm.plan.execute",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
+    },
+    {
+      "name": "stewardmesh-audience",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "stewardmesh-master-data-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "stewardmesh-master-data",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
     }
   ],
   "clients": [
@@ -32,7 +85,56 @@
       "defaultClientScopes": [
         "supplier-import.write",
         "supplier-import.read",
-        "identity-resolution.read"
+        "identity-resolution.read",
+        "stewardmesh-audience"
+      ]
+    },
+    {
+      "clientId": "stewardmesh-agent",
+      "name": "StewardMesh local MCP agent (read and propose)",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "stewardmesh-agent-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "publicClient": false,
+      "defaultClientScopes": [
+        "mdm.supplier.read",
+        "mdm.steward.propose",
+        "stewardmesh-audience"
+      ]
+    },
+    {
+      "clientId": "stewardmesh-steward",
+      "name": "StewardMesh local MCP steward (read and approve)",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "stewardmesh-steward-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "publicClient": false,
+      "defaultClientScopes": [
+        "mdm.supplier.read",
+        "mdm.steward.approve",
+        "stewardmesh-audience"
+      ]
+    },
+    {
+      "clientId": "stewardmesh-executor",
+      "name": "StewardMesh local MCP executor (read and execute)",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "stewardmesh-executor-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "publicClient": false,
+      "defaultClientScopes": [
+        "mdm.supplier.read",
+        "mdm.plan.execute",
+        "stewardmesh-audience"
       ]
     }
   ]

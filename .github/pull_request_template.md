@@ -13,6 +13,7 @@
 - [ ] Full Maven verification passes, or the reason it was not applicable is documented
 - [ ] Docker/local setup changes were validated
 - [ ] No secrets or real company/supplier data were added
+- [ ] No tooling attribution, assistant/vendor names, generated-by footers or third-party email addresses appear in the commits, trailers or this description
 
 Commands and results:
 

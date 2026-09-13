@@ -69,7 +69,9 @@ Java 25 is required. Maven is supplied by the repository wrapper.
 
 At startup, the service connects to PostgreSQL, applies the Flyway intake schema, validates its JPA mappings and configures immutable intake storage plus bounded supplier-workbook parsing. The supplier intake API is published under `/api/v1/supplier-imports`; its OpenAPI document is available at `/v3/api-docs`.
 
-The API is an OAuth2 resource server. Configure `STEWARDMESH_JWK_SET_URI` for the JWT issuer. Upload requires `supplier-import.write`; status and report reads require `supplier-import.read`. The local stack includes a development-only Keycloak realm and service account with all three API scopes; its placeholder credentials must never be reused outside a workstation.
+The API is an OAuth2 resource server. Configure `STEWARDMESH_JWK_SET_URI` for the JWT issuer and `STEWARDMESH_JWT_AUDIENCE` for the audience this deployment answers to; the service refuses to start when the audience is empty, because a resource server without one accepts any token its issuer signed for any service. Upload requires `supplier-import.write`; status and report reads require `supplier-import.read`.
+
+The MCP endpoint at `/mcp` authorizes each tool separately: `mdm.supplier.read` for reads and simulation, `mdm.steward.propose`, `mdm.steward.approve` and `mdm.plan.execute` for the governed steps. The local Keycloak realm ships one service account per role — `stewardmesh-agent` (read, propose), `stewardmesh-steward` (read, approve) and `stewardmesh-executor` (read, execute) — alongside the `stewardmesh-local` REST client. Distinct subjects are what let the local stack demonstrate that a proposer cannot approve its own plan. A repository gate fails when the realm cannot grant a scope the published MCP contract requires. All these credentials are development-only placeholders and must never be reused outside a workstation.
 
 With the service running, exercise token acquisition, upload and idempotent replay in a second terminal:
 
@@ -105,7 +107,11 @@ The Phase 3 acceptance proof synchronizes a versioned synthetic business unit fr
 
 Run `./scripts/verify-phase-3.sh` for the complete repository gate. All Phase 3 fixtures, identities, reference events and supplier values are synthetic.
 
-Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes. Matching metric labels use only bounded entity/outcome/conflict dimensions. Console logs use structured JSON and never include workbook rows or supplier identifiers.
+Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes.
+
+Governed execution and messaging are instrumented at the composition root rather than inside the use cases, so a metric can never roll back a business transaction. Counters separate approvals from rejections and first decisions from idempotent replays, time and count executions with their committed effects, and record inbox ingress by outcome and reason, event lag, and broker delivery success or failure per event type. Structured logs report quarantine, loop suppression and failed delivery with the event id, event type and reason code.
+
+Every label is drawn from a closed vocabulary. Subjects, plan hashes, approval reasons, event identifiers and producers are never labels, and tests assert the resulting label cardinality. Console logs use structured JSON and never include workbook rows or supplier identifiers.
 
 ## Local dependencies
 

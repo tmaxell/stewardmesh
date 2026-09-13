@@ -61,17 +61,16 @@ class MessagingServicesTest {
         var repository = new MemoryOutbox();
         repository.claimed.add(new OutboxPublication(outboxEvent(1), 1));
         repository.claimed.add(new OutboxPublication(outboxEvent(2), 1));
+        var publisher = new StubPublisher();
         var service = new OutboxPublicationService(
                 repository,
-                envelope -> {
-                    if (envelope.entityVersion() == 2) throw new IllegalStateException("synthetic outage");
-                    return "message-801";
-                },
+                publisher,
                 Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofMinutes(5));
 
         assertEquals(1, service.execute(10));
         assertEquals(List.of(outboxEvent(1).eventId()), repository.published);
         assertEquals(List.of(outboxEvent(2).eventId()), repository.released);
+        assertEquals("stub-broker", publisher.delivered.getFirst().transportSystem());
         assertThrows(IllegalArgumentException.class, () -> service.execute(0));
     }
 
@@ -160,4 +159,26 @@ class MessagingServicesTest {
     private static final class DirectTransaction implements ApplicationTransaction {
         @Override public <T> T execute(java.util.function.Supplier<T> work) { return work.get(); }
     }
+
+    /** Stands in for a broker adapter, including the transport identity it stamps on the envelope. */
+    private static final class StubPublisher
+            implements io.stewardmesh.masterdata.application.port.out.MasterDataEventPublisher {
+
+        @Override
+        public String transportSystem() {
+            return "stub-broker";
+        }
+
+        private final List<CanonicalEventEnvelope> delivered = new java.util.ArrayList<>();
+
+        @Override
+        public String publish(CanonicalEventEnvelope envelope) {
+            if (envelope.entityVersion() == 2) {
+                throw new IllegalStateException("synthetic outage");
+            }
+            delivered.add(envelope);
+            return "message-801";
+        }
+    }
+
 }

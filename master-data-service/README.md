@@ -45,4 +45,6 @@ Messaging uses a versioned canonical envelope and broker-neutral application por
 
 `IdentityResolutionEndToEndIT` is the Phase 2 acceptance proof. Against disposable PostgreSQL it verifies five supplier outcomes, idempotent reruns, stewardship routing, golden provenance, secured REST reads, metrics and the latency smoke threshold without introducing production-only test hooks.
 
+`McpTokenAuthenticationIT` covers what the acceptance proof deliberately skips. The proof injects an already-authenticated token so it can concentrate on the governed lifecycle, which leaves signature, expiry and audience unexercised. This test signs real tokens against a JWK set the application fetches over HTTP, then asserts that a token minted for another audience, an expired token and one signed by a foreign key are all refused at `/mcp`, and that scope enforcement still applies once a real token is accepted.
+
 `Phase3GovernedExecutionEndToEndIT` is the Phase 3 acceptance proof. Against disposable PostgreSQL and LocalStack SQS it verifies reference-event replay, the scoped MCP plan lifecycle, independent approval, idempotent atomic execution, audit/outbox publication and durable own-event loop suppression using synthetic data only.
