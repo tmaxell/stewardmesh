@@ -6,6 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.stewardmesh.masterdata.application.intake.IntakeArtifactProfile;
+import io.stewardmesh.masterdata.application.intake.IntakeMappingSuggestion;
+import io.stewardmesh.masterdata.application.intake.MappedColumnPreview;
+import io.stewardmesh.masterdata.application.intake.MappedRecordsPreview;
+import io.stewardmesh.masterdata.application.intake.MappedRecordsReadiness;
+import io.stewardmesh.masterdata.application.intake.MappingDecision;
+import io.stewardmesh.masterdata.application.intake.SuggestedColumnMapping;
 import io.stewardmesh.masterdata.application.intake.SupplierWorkbookColumnProfile;
 import io.stewardmesh.masterdata.application.intake.SupplierWorkbookProfile;
 import io.stewardmesh.masterdata.domain.intake.ImportJobId;
@@ -13,6 +19,7 @@ import io.stewardmesh.masterdata.domain.intake.IntakeArtifactId;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -36,17 +43,23 @@ class IntakeProfilingMcpToolsTest {
     }
 
     @Test
-    void publishesOneReadOnlyValueFreeToolSchema() {
+    void publishesThreeReadOnlyValueFreeToolSchemas() {
         var provider = MethodToolCallbackProvider.builder()
                 .toolObjects(tools(ignored -> profile()))
                 .build();
         var callbacks = provider.getToolCallbacks();
 
-        assertEquals(1, callbacks.length);
-        assertEquals("profile_intake_artifact", callbacks[0].getToolDefinition().name());
-        assertTrue(callbacks[0].getToolDefinition().description().startsWith("READ:"));
-        assertTrue(callbacks[0].getToolDefinition().inputSchema().contains("importId"));
-        assertFalse(callbacks[0].getToolDefinition().inputSchema().contains("subject"));
+        assertEquals(3, callbacks.length);
+        assertEquals(
+                Set.of("profile_intake_artifact", "suggest_schema_mapping", "preview_mapped_records"),
+                java.util.Arrays.stream(callbacks)
+                        .map(callback -> callback.getToolDefinition().name())
+                        .collect(java.util.stream.Collectors.toUnmodifiableSet()));
+        for (var callback : callbacks) {
+            assertTrue(callback.getToolDefinition().description().startsWith("READ:"));
+            assertTrue(callback.getToolDefinition().inputSchema().contains("importId"));
+            assertFalse(callback.getToolDefinition().inputSchema().contains("subject"));
+        }
     }
 
     @Test
@@ -80,13 +93,36 @@ class IntakeProfilingMcpToolsTest {
         }
 
         assertTrue(contract.contains("\"name\": \"profile_intake_artifact\""));
+        assertTrue(contract.contains("\"name\": \"suggest_schema_mapping\""));
+        assertTrue(contract.contains("\"name\": \"preview_mapped_records\""));
         assertTrue(contract.contains("\"requiredScope\": \"mdm.supplier.read\""));
         assertTrue(contract.contains("never includes workbook row values"));
     }
 
+    @Test
+    void requiresReadScopeForMappingAndReturnsOnlyBoundedAggregates() {
+        var tools = tools(ignored -> profile());
+        authenticate("proposer", GovernedActionPlanMcpTools.PROPOSE_SCOPE);
+        assertThrows(
+                AccessDeniedException.class,
+                () -> tools.suggestSchemaMapping(IMPORT_ID.value().toString()));
+
+        authenticate("reader", IntakeProfilingMcpTools.READ_SCOPE);
+        var suggestion = tools.suggestSchemaMapping(IMPORT_ID.value().toString());
+        var preview = tools.previewMappedRecords(
+                IMPORT_ID.value().toString(),
+                List.of(new IntakeProfilingMcpTools.MappingInput(1, "source_record_id")));
+
+        assertEquals("supplier-column-mapping-v1", suggestion.schemaVersion());
+        assertEquals("source_record_id", suggestion.columns().getFirst().targetColumn());
+        assertEquals("READY", preview.readiness());
+        assertEquals(1, preview.columns().size());
+        assertFalse(preview.toString().contains("Synthetic Supplier"));
+    }
+
     private static IntakeProfilingMcpTools tools(
             io.stewardmesh.masterdata.application.port.in.ProfileIntakeArtifact useCase) {
-        return new IntakeProfilingMcpTools(useCase);
+        return new IntakeProfilingMcpTools(useCase, ignored -> suggestion(), ignored -> preview());
     }
 
     private static IntakeArtifactProfile profile() {
@@ -99,6 +135,31 @@ class IntakeProfilingMcpToolsTest {
                         2,
                         List.of(new SupplierWorkbookColumnProfile(
                                 1, "source_record_id", true, 1, 1, 0))));
+    }
+
+    private static IntakeMappingSuggestion suggestion() {
+        return new IntakeMappingSuggestion(
+                IMPORT_ID,
+                ARTIFACT_ID,
+                "supplier-column-mapping-v1",
+                List.of(new SuggestedColumnMapping(
+                        1,
+                        "source_record_id",
+                        "source_record_id",
+                        MappingDecision.EXACT_CANONICAL,
+                        10_000)),
+                List.of());
+    }
+
+    private static MappedRecordsPreview preview() {
+        return new MappedRecordsPreview(
+                IMPORT_ID,
+                ARTIFACT_ID,
+                2,
+                MappedRecordsReadiness.READY,
+                List.of(),
+                List.of(new MappedColumnPreview(
+                        1, "source_record_id", "source_record_id", true, 2, 0, 0)));
     }
 
     private static void authenticate(String subject, String scope) {

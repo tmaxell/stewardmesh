@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:stewardmesh:mcp:intake-profiling-tools:v1",
-  "contractVersion": "1.0.0",
+  "contractVersion": "1.1.0",
   "transport": {
     "protocol": "STREAMABLE_HTTP",
     "endpoint": "/mcp",
@@ -65,6 +65,138 @@
         },
         "additionalProperties": false
       }
+    },
+    {
+      "name": "suggest_schema_mapping",
+      "class": "READ",
+      "requiredScope": "mdm.supplier.read",
+      "sideEffect": "NONE",
+      "inputSchema": {
+        "type": "object",
+        "required": ["importId"],
+        "properties": {
+          "importId": {"type": "string", "format": "uuid"}
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "Deterministic header-only mapping suggestions; never includes workbook row values.",
+        "required": ["importId", "artifactId", "schemaVersion", "columns", "missingRequiredColumns"],
+        "properties": {
+          "importId": {"type": "string", "format": "uuid"},
+          "artifactId": {"type": "string", "format": "uuid"},
+          "schemaVersion": {"type": "string", "const": "supplier-column-mapping-v1"},
+          "columns": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "required": ["sourcePosition", "sourceHeader", "decision", "confidenceBasisPoints"],
+              "properties": {
+                "sourcePosition": {"type": "integer", "minimum": 1, "maximum": 32},
+                "sourceHeader": {"type": "string", "minLength": 1, "maxLength": 4096},
+                "targetColumn": {"type": ["string", "null"]},
+                "decision": {
+                  "enum": ["EXACT_CANONICAL", "KNOWN_ALIAS", "TARGET_CONFLICT", "UNMAPPED"]
+                },
+                "confidenceBasisPoints": {"type": "integer", "minimum": 0, "maximum": 10000}
+              },
+              "additionalProperties": false
+            }
+          },
+          "missingRequiredColumns": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"$ref": "#/$defs/canonicalColumn"}
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "preview_mapped_records",
+      "class": "READ",
+      "requiredScope": "mdm.supplier.read",
+      "sideEffect": "NONE",
+      "inputSchema": {
+        "type": "object",
+        "required": ["importId", "mappings"],
+        "properties": {
+          "importId": {"type": "string", "format": "uuid"},
+          "mappings": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "required": ["sourcePosition", "targetColumn"],
+              "properties": {
+                "sourcePosition": {"type": "integer", "minimum": 1, "maximum": 32},
+                "targetColumn": {"$ref": "#/$defs/canonicalColumn"}
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "description": "Aggregate mapped-column readiness; never includes workbook row values.",
+        "required": ["importId", "artifactId", "dataRows", "readiness", "missingRequiredColumns", "columns"],
+        "properties": {
+          "importId": {"type": "string", "format": "uuid"},
+          "artifactId": {"type": "string", "format": "uuid"},
+          "dataRows": {"type": "integer", "minimum": 0, "maximum": 5000},
+          "readiness": {"enum": ["READY", "INCOMPLETE_REQUIRED_COLUMNS", "FORMULAS_PRESENT"]},
+          "missingRequiredColumns": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"$ref": "#/$defs/canonicalColumn"}
+          },
+          "columns": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "required": ["sourcePosition", "sourceHeader", "targetColumn", "required", "nonBlankValues", "blankValues", "formulaCells"],
+              "properties": {
+                "sourcePosition": {"type": "integer", "minimum": 1, "maximum": 32},
+                "sourceHeader": {"type": "string", "minLength": 1, "maxLength": 4096},
+                "targetColumn": {"$ref": "#/$defs/canonicalColumn"},
+                "required": {"type": "boolean"},
+                "nonBlankValues": {"type": "integer", "minimum": 0, "maximum": 5000},
+                "blankValues": {"type": "integer", "minimum": 0, "maximum": 5000},
+                "formulaCells": {"type": "integer", "minimum": 0, "maximum": 5000}
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
     }
-  ]
+  ],
+  "$defs": {
+    "canonicalColumn": {
+      "type": "string",
+      "enum": [
+        "source_record_id",
+        "source_version",
+        "legal_name",
+        "inn",
+        "kpp",
+        "ogrn",
+        "country_code",
+        "postal_code",
+        "region",
+        "city",
+        "address_line",
+        "site_code",
+        "procurement_bu_code",
+        "site_purpose"
+      ]
+    }
+  }
 }

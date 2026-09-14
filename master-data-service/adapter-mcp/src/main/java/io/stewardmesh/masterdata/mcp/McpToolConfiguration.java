@@ -5,7 +5,9 @@ import io.stewardmesh.masterdata.application.port.in.ExecuteActionPlan;
 import io.stewardmesh.masterdata.application.port.in.GetActionPlan;
 import io.stewardmesh.masterdata.application.port.in.ProposeActionPlan;
 import io.stewardmesh.masterdata.application.port.in.ProfileIntakeArtifact;
+import io.stewardmesh.masterdata.application.port.in.PreviewMappedRecords;
 import io.stewardmesh.masterdata.application.port.in.SimulateActionPlan;
+import io.stewardmesh.masterdata.application.port.in.SuggestIntakeMapping;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.context.annotation.Bean;
@@ -30,8 +32,12 @@ public class McpToolConfiguration {
     }
 
     @Bean
-    IntakeProfilingMcpTools intakeProfilingMcpTools(ProfileIntakeArtifact profileIntakeArtifact) {
-        return new IntakeProfilingMcpTools(profileIntakeArtifact);
+    IntakeProfilingMcpTools intakeProfilingMcpTools(
+            ProfileIntakeArtifact profileIntakeArtifact,
+            SuggestIntakeMapping suggestIntakeMapping,
+            PreviewMappedRecords previewMappedRecords) {
+        return new IntakeProfilingMcpTools(
+                profileIntakeArtifact, suggestIntakeMapping, previewMappedRecords);
     }
 
     @Bean
