@@ -132,7 +132,7 @@ class S3IntakeArtifactStorageIT {
     @Test
     void loadsContentByPersistedArtifactIdentityAndVerifiesItsChecksum() throws IOException {
         IntakeArtifact artifact = storage.store(new ByteArrayContent(WORKBOOK, WORKBOOK.length));
-        repository.save(artifact);
+        repository.register(artifact);
 
         try (InputStream input = storage.load(artifact.id()).openStream()) {
             assertArrayEquals(WORKBOOK, input.readAllBytes());
@@ -153,7 +153,7 @@ class S3IntakeArtifactStorageIT {
     @Test
     void detectsObjectContentChangedOutsideTheImmutableAdapter() throws IOException {
         IntakeArtifact artifact = storage.store(new ByteArrayContent(WORKBOOK, WORKBOOK.length));
-        repository.save(artifact);
+        repository.register(artifact);
         byte[] changed = "tampered-xlsx-content!".getBytes(StandardCharsets.UTF_8);
         assertEquals(WORKBOOK.length, changed.length);
         s3.putObject(
@@ -249,8 +249,13 @@ class S3IntakeArtifactStorageIT {
         }
 
         @Override
-        public void save(IntakeArtifact artifact) {
-            artifacts.put(artifact.id(), artifact);
+        public IntakeArtifact register(IntakeArtifact candidate) {
+            return artifacts.values().stream()
+                    .filter(registered -> registered.sha256().equals(candidate.sha256()))
+                    .findFirst()
+                    .orElseGet(() -> artifacts.put(candidate.id(), candidate) == null
+                            ? candidate
+                            : candidate);
         }
     }
 }

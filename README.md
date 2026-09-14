@@ -58,6 +58,8 @@ Phase 3 now includes governed action plans through execution and a Streamable HT
 
 The integration boundary now relays canonical v1 envelopes through SQS. Transactional inbox deduplication, payload fingerprints, monotonic business-unit reference versions, redacted quarantine evidence and explicit own-event suppression prevent replay or relay loops from producing a second effect. The outbox publisher claims bounded PostgreSQL batches and records broker acknowledgements while preserving at-least-once semantics.
 
+Phase 4 starts with value-free intake profiling, deterministic column mapping and an active reference steward agent. The agent is a separate model-independent supervisor that advances through `PROFILE`, `IDENTIFY`, `PLAN`, and `VERIFY` under fixed per-phase MCP allowlists, mandatory evidence checklists and a 16-call ceiling. It can create and simulate a proposal but cannot approve or execute it. Its production transport performs authenticated Streamable HTTP MCP calls and retains decision codes plus tool outcomes without hidden reasoning or credentials. MCP results enter the reasoner only through a bounded, canonical and integrity-bound `UNTRUSTED_TOOL_EVIDENCE` envelope that remains structurally separate from trusted control policy.
+
 ## Build and run
 
 Java 25 is required. Maven is supplied by the repository wrapper.
@@ -106,6 +108,18 @@ The Phase 3 acceptance proof synchronizes a versioned synthetic business unit fr
 ```
 
 Run `./scripts/verify-phase-3.sh` for the complete repository gate. All Phase 3 fixtures, identities, reference events and supplier values are synthetic.
+
+## Concurrency smoke
+
+`SupplierIntakeLoadSmokeIT` drives the deployed stack over real HTTP with real signed tokens, because a load check that bypasses the servlet container and the security filter chain measures something the deployment never runs. Twelve tenants import concurrently and eight identical requests race one idempotency key.
+
+It asserts invariants rather than speed: every tenant keeps its own import, no projection identity is duplicated by a lost update, and a raced idempotency key collapses into exactly one import with exactly one attempt reporting itself as the original. The latency ceilings are generous enough to stay meaningful on slower hardware; they catch a collapse, not a regression of a few milliseconds.
+
+```bash
+./mvnw --batch-mode --no-transfer-progress \
+  -pl master-data-service/bootstrap-master-service -am verify \
+  -Dit.test=SupplierIntakeLoadSmokeIT -Dfailsafe.failIfNoSpecifiedTests=false
+```
 
 Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes.
 

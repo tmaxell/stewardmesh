@@ -11,6 +11,12 @@ public interface IdempotencyRepository {
 
     Optional<IdempotencyRecord> find(ImportRequestIdentity requestIdentity);
 
+    /**
+     * Claims the request identity for this record.
+     *
+     * @throws io.stewardmesh.masterdata.application.intake.ConcurrentImportRegistrationException
+     *     when a concurrent caller already claimed the same identity
+     */
     void save(IdempotencyRecord record);
 
     record IdempotencyRecord(

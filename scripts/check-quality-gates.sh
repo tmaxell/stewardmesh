@@ -43,13 +43,14 @@ if [[ -n "${PROVENANCE_COMMIT_HITS}" ]]; then
   exit 1
 fi
 
-# One acceptance proof per delivered stage. A stage whose proof stops running must fail the gate
-# rather than pass quietly.
+# One acceptance proof per delivered stage, plus the concurrency smoke. A proof that stops running
+# must fail the gate rather than pass quietly.
 FAILSAFE_REPORTS="master-data-service/bootstrap-master-service/target/failsafe-reports"
 for report in \
   "${FAILSAFE_REPORTS}/TEST-io.stewardmesh.masterdata.bootstrap.SupplierIntakeEndToEndIT.xml" \
   "${FAILSAFE_REPORTS}/TEST-io.stewardmesh.masterdata.bootstrap.IdentityResolutionEndToEndIT.xml" \
-  "${FAILSAFE_REPORTS}/TEST-io.stewardmesh.masterdata.bootstrap.Phase3GovernedExecutionEndToEndIT.xml"; do
+  "${FAILSAFE_REPORTS}/TEST-io.stewardmesh.masterdata.bootstrap.Phase3GovernedExecutionEndToEndIT.xml" \
+  "${FAILSAFE_REPORTS}/TEST-io.stewardmesh.masterdata.bootstrap.SupplierIntakeLoadSmokeIT.xml"; do
   [[ -f "${report}" ]] || {
     echo "Required E2E report was not generated: ${report}" >&2
     exit 1

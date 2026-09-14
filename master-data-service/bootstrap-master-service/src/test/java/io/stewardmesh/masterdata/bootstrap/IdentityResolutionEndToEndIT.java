@@ -169,7 +169,7 @@ class IdentityResolutionEndToEndIT {
     private Scenario scenario(int sequence, String name, Map<String, String> canonicalValues) {
         var artifactId = new IntakeArtifactId(UUID.nameUUIDFromBytes((name + "-artifact").getBytes()));
         String checksum = "%064x".formatted(sequence);
-        artifacts.save(new IntakeArtifact(
+        artifacts.register(new IntakeArtifact(
                 artifactId, checksum, "intake/sha256/" + checksum,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 1, INGESTED_AT));
         var jobId = new ImportJobId(UUID.nameUUIDFromBytes((name + "-job").getBytes()));

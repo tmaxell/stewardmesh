@@ -11,7 +11,13 @@ Authoritative modular MDM service. Active foundation modules:
 - `adapter-ingestion-xlsx` — bounded Apache POI intake.
 - `bootstrap-master-service` — Spring Boot composition root.
 
-`steward-agent` remains inactive until its first working vertical slice. Dependencies point inward: domain <- application <- adapters <- bootstrap.
+The separate `steward-agent` module is active and depends on no master-data-service module. It consumes the service exclusively through authenticated MCP. Within the authoritative service, dependencies still point inward: domain <- application <- adapters <- bootstrap.
+
+Intake profiling and column mapping remain read-only and value-free. The service suggests only exact canonical names or members of a closed, versioned alias set, reports ambiguous target collisions instead of guessing, and validates explicit one-to-one mappings before returning aggregate readiness. Headers and blank/non-blank/formula counts may be returned; workbook row values are never included.
+
+Only the caller that creates an import drives its pipeline. A replayed upload reports the current status and returns; driving it too would advance the same job from two threads and lose the optimistic lock. An import left in `RECEIVED` by an abandoned caller is therefore not recovered by a later replay and needs an explicit sweeper, which the MVP does not yet have.
+
+Intake registration is content-addressed and therefore concurrency-safe by construction. Both the artifact digest and the request identity are claimed in one atomic statement that PostgreSQL resolves, so two callers uploading identical bytes, or retrying the same idempotency key at the same moment, cannot both insert. The caller that loses the race rolls back and retries once, by which point the winning record is committed and the ordinary replay path answers it. A raced retry is reported as a replay, never as a client conflict.
 
 The identity-resolution domain distinguishes party and supplier-site candidates, retains bounded feature-level evidence, and applies explicit versioned thresholds. Authoritative identifier conflicts can never produce an automatic link.
 

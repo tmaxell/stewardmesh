@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import io.stewardmesh.masterdata.application.intake.IdempotencyConflictException;
+import io.stewardmesh.masterdata.application.intake.ConcurrentImportRegistrationException;
 import io.stewardmesh.masterdata.application.intake.SourceRecordWriteException;
 import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
@@ -115,7 +115,7 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
     @Test
     void roundTripsImmutableArtifactAndImportLifecycleMetadata() {
         IntakeArtifact artifact = artifact();
-        artifactRepository.save(artifact);
+        artifactRepository.register(artifact);
         ImportJob received = ImportJob.received(
                 importJobId(), artifact.id(), new SourceSystemRef("SYNTHETIC_JPA"), CREATED_AT);
         importJobRepository.save(received);
@@ -128,9 +128,30 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
     }
 
     @Test
-    void treatsTheSameIdempotencyRecordAsReplayAndRejectsDifferentContent() {
+    void registersContentWhoseCreationInstantIsFinerThanPostgresKeeps() {
+        // Linux clocks report nanoseconds while TIMESTAMPTZ keeps microseconds, so a registration
+        // must never depend on the stored row equalling the candidate it was built from.
+        IntakeArtifact base = artifact();
+        IntakeArtifact artifact = new IntakeArtifact(
+                base.id(),
+                base.sha256(),
+                base.storageKey(),
+                base.contentType(),
+                base.sizeBytes(),
+                CREATED_AT.plusNanos(1_234));
+
+        IntakeArtifact registered = artifactRepository.register(artifact);
+
+        assertEquals(artifact.id(), registered.id());
+        assertEquals(artifact.sha256(), registered.sha256());
+        assertEquals(registered, artifactRepository.findById(artifact.id()).orElseThrow());
+        assertEquals(registered, artifactRepository.register(artifact));
+    }
+
+    @Test
+    void letsOnlyOneCallerClaimARequestIdentity() {
         IntakeArtifact artifact = artifact();
-        artifactRepository.save(artifact);
+        artifactRepository.register(artifact);
         ImportJob job = ImportJob.received(
                 importJobId(), artifact.id(), new SourceSystemRef("SYNTHETIC_IDEMPOTENCY"), CREATED_AT);
         importJobRepository.save(job);
@@ -139,11 +160,20 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
         var first = new IdempotencyRecord(identity, job.id(), artifact.sha256(), CREATED_AT);
 
         idempotencyRepository.save(first);
-        idempotencyRepository.save(first);
 
         assertEquals(first, idempotencyRepository.find(identity).orElseThrow());
-        var conflict = new IdempotencyRecord(identity, job.id(), "b".repeat(64), CREATED_AT);
-        assertThrows(IdempotencyConflictException.class, () -> idempotencyRepository.save(conflict));
+        // Claiming is a single atomic step, so the adapter cannot tell a repeat from another
+        // caller. Deciding whether a claimed identity is a replay or a content conflict needs the
+        // staged digest, which only the application has; it compares before it ever claims.
+        var repeat = new IdempotencyRecord(identity, job.id(), artifact.sha256(), CREATED_AT);
+        var differentContent = new IdempotencyRecord(identity, job.id(), "b".repeat(64), CREATED_AT);
+        assertThrows(
+                ConcurrentImportRegistrationException.class,
+                () -> idempotencyRepository.save(repeat));
+        assertThrows(
+                ConcurrentImportRegistrationException.class,
+                () -> idempotencyRepository.save(differentContent));
+        assertEquals(first, idempotencyRepository.find(identity).orElseThrow());
     }
 
     @Test
@@ -302,7 +332,7 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
                 importJobId(), artifact.id(), new SourceSystemRef("SYNTHETIC_TRANSACTION"), CREATED_AT);
 
         assertThrows(IllegalStateException.class, () -> applicationTransaction.execute(() -> {
-            artifactRepository.save(artifact);
+            artifactRepository.register(artifact);
             importJobRepository.save(job);
             throw new IllegalStateException("synthetic rollback trigger");
         }));
@@ -329,7 +359,7 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
 
     private ImportJob persistedJob(String sourceSystem) {
         IntakeArtifact artifact = artifact();
-        artifactRepository.save(artifact);
+        artifactRepository.register(artifact);
         ImportJob job = ImportJob.received(
                 importJobId(), artifact.id(), new SourceSystemRef(sourceSystem), CREATED_AT);
         importJobRepository.save(job);

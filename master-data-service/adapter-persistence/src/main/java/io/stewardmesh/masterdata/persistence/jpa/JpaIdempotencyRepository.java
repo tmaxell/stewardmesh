@@ -1,6 +1,6 @@
 package io.stewardmesh.masterdata.persistence.jpa;
 
-import io.stewardmesh.masterdata.application.intake.IdempotencyConflictException;
+import io.stewardmesh.masterdata.application.intake.ConcurrentImportRegistrationException;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
 import io.stewardmesh.masterdata.domain.intake.ImportRequestIdentity;
 import java.util.Optional;
@@ -25,11 +25,16 @@ public class JpaIdempotencyRepository implements IdempotencyRepository {
     @Override
     @Transactional
     public void save(IdempotencyRecord record) {
-        repository.findById(toId(record.requestIdentity())).ifPresentOrElse(existing -> {
-            if (!existing.toDomain().equals(record)) {
-                throw new IdempotencyConflictException();
-            }
-        }, () -> repository.save(IdempotencyEntity.fromDomain(record)));
+        var identity = record.requestIdentity();
+        int claimed = repository.claimIdentity(
+                identity.sourceSystem().value(),
+                identity.idempotencyKey().value(),
+                record.importJobId().value(),
+                record.artifactSha256(),
+                record.createdAt());
+        if (claimed == 0) {
+            throw new ConcurrentImportRegistrationException();
+        }
     }
 
     private static IdempotencyEntityId toId(ImportRequestIdentity identity) {

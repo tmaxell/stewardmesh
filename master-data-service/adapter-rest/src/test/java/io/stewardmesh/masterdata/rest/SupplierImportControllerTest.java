@@ -1,6 +1,7 @@
 package io.stewardmesh.masterdata.rest;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -81,6 +82,7 @@ class SupplierImportControllerTest {
         startSupplierImport.result = null;
         startSupplierImport.failure = null;
         processSupplierImport.result = null;
+        processSupplierImport.invocations = 0;
         routeSupplierImportMatches.result = null;
         getSupplierImportStatus.result = null;
         getSupplierImportReport.result = null;
@@ -148,6 +150,22 @@ class SupplierImportControllerTest {
                         .with(writeJwt()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("WORKBOOK_SIGNATURE_INVALID"));
+    }
+
+    @Test
+    void neverDrivesThePipelineForAReplayedUpload() throws Exception {
+        // A client retrying after a timeout can have both attempts in flight. If the replay also
+        // drove processing, two threads would advance the same import and lose the optimistic lock.
+        startSupplierImport.result =
+                new StartSupplierImportResult(IMPORT_ID, ImportStatus.RECEIVED, true);
+
+        mockMvc.perform(validUpload().with(writeJwt()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.importId").value(IMPORT_ID.value().toString()))
+                .andExpect(jsonPath("$.status").value("RECEIVED"))
+                .andExpect(jsonPath("$.replayed").value(true));
+
+        assertEquals(0, processSupplierImport.invocations, "a replay must not process the import");
     }
 
     @Test
@@ -309,9 +327,11 @@ class SupplierImportControllerTest {
     static final class ProcessStub implements ProcessSupplierImport {
 
         private ProcessSupplierImportResult result;
+        private int invocations;
 
         @Override
         public ProcessSupplierImportResult execute(ImportJobId command) {
+            invocations++;
             return result;
         }
     }

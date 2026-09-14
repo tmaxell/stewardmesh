@@ -307,8 +307,8 @@ class SupplierImportServicesTest {
         }
 
         @Override
-        public void save(IntakeArtifact artifact) {
-            artifacts.putIfAbsent(artifact.sha256(), artifact);
+        public IntakeArtifact register(IntakeArtifact candidate) {
+            return artifacts.merge(candidate.sha256(), candidate, (registered, ignored) -> registered);
         }
 
         @Override
@@ -328,7 +328,9 @@ class SupplierImportServicesTest {
 
         @Override
         public void save(IdempotencyRecord record) {
-            idempotency.putIfAbsent(record.requestIdentity(), record);
+            if (idempotency.putIfAbsent(record.requestIdentity(), record) != null) {
+                throw new ConcurrentImportRegistrationException();
+            }
         }
     }
 }

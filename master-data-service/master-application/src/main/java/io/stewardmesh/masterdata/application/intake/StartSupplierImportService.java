@@ -55,7 +55,13 @@ public final class StartSupplierImportService implements StartSupplierImport {
         Objects.requireNonNull(command, "command must not be null");
         IntakeArtifact stagedArtifact = telemetry.measure(
                 Stage.ARTIFACT_STORE, () -> artifactStorage.store(command.workbookContent()));
-        return transaction.execute(() -> register(command, stagedArtifact));
+        try {
+            return transaction.execute(() -> register(command, stagedArtifact));
+        } catch (ConcurrentImportRegistrationException lostTheRace) {
+            // The winning registration is committed by the time this attempt rolled back, so the
+            // retry resolves through the ordinary replay path rather than racing again.
+            return transaction.execute(() -> register(command, stagedArtifact));
+        }
     }
 
     private StartSupplierImportResult register(
@@ -73,9 +79,9 @@ public final class StartSupplierImportService implements StartSupplierImport {
             return new StartSupplierImportResult(job.id(), job.status(), true);
         }
 
-        IntakeArtifact artifact = artifactRepository
-                .findBySha256(stagedArtifact.sha256())
-                .orElseGet(() -> persist(stagedArtifact));
+        // Content addressing must resolve in one step. Reading first and inserting after would let
+        // two concurrent uploads of identical bytes both miss and both insert.
+        IntakeArtifact artifact = artifactRepository.register(stagedArtifact);
         var now = clock.instant();
         ImportJob job = ImportJob.received(
                 identityGenerator.nextImportJobId(),
@@ -86,10 +92,5 @@ public final class StartSupplierImportService implements StartSupplierImport {
         idempotencyRepository.save(new IdempotencyRecord(
                 command.requestIdentity(), job.id(), artifact.sha256(), now));
         return new StartSupplierImportResult(job.id(), job.status(), false);
-    }
-
-    private IntakeArtifact persist(IntakeArtifact artifact) {
-        artifactRepository.save(artifact);
-        return artifact;
     }
 }
