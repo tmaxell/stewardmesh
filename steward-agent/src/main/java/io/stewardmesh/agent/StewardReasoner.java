@@ -4,5 +4,5 @@ package io.stewardmesh.agent;
 @FunctionalInterface
 public interface StewardReasoner {
 
-    AgentDirective next(AgentSnapshot snapshot);
+    AgentDirective next(AgentReasoningContext context);
 }
