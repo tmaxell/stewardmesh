@@ -20,8 +20,7 @@ public final class SafeRetryingMcpCapabilityClient implements McpCapabilityClien
             "find_site_candidates",
             "explain_match",
             "simulate_onboarding_plan",
-            "get_action_plan",
-            "verify_onboarding_result");
+            "get_action_plan");
     private static final Set<String> RETRYABLE_FAILURES = Set.of(
             "MCP_CALL_TIMEOUT", "MCP_TRANSPORT_FAILED", "MCP_SERVER_UNAVAILABLE");
 
