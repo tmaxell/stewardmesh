@@ -35,6 +35,10 @@
                 <directory>../contracts/agent</directory>
                 <targetPath>contracts/agent</targetPath>
             </testResource>
+            <testResource>
+                <directory>../evals</directory>
+                <targetPath>evals</targetPath>
+            </testResource>
         </testResources>
     </build>
 </project>
