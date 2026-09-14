@@ -128,6 +128,27 @@ class JpaIntakeMetadataIT extends PostgreSqlIntegrationTestSupport {
     }
 
     @Test
+    void registersContentWhoseCreationInstantIsFinerThanPostgresKeeps() {
+        // Linux clocks report nanoseconds while TIMESTAMPTZ keeps microseconds, so a registration
+        // must never depend on the stored row equalling the candidate it was built from.
+        IntakeArtifact base = artifact();
+        IntakeArtifact artifact = new IntakeArtifact(
+                base.id(),
+                base.sha256(),
+                base.storageKey(),
+                base.contentType(),
+                base.sizeBytes(),
+                CREATED_AT.plusNanos(1_234));
+
+        IntakeArtifact registered = artifactRepository.register(artifact);
+
+        assertEquals(artifact.id(), registered.id());
+        assertEquals(artifact.sha256(), registered.sha256());
+        assertEquals(registered, artifactRepository.findById(artifact.id()).orElseThrow());
+        assertEquals(registered, artifactRepository.register(artifact));
+    }
+
+    @Test
     void letsOnlyOneCallerClaimARequestIdentity() {
         IntakeArtifact artifact = artifact();
         artifactRepository.register(artifact);
