@@ -1,11 +1,13 @@
 package io.stewardmesh.agent;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.LongSupplier;
 
 /** Fail-closed supervisor that separates profile, identity, planning, and verification capabilities. */
 public final class ReferenceStewardAgent {
@@ -19,15 +21,41 @@ public final class ReferenceStewardAgent {
     private final StewardReasoner reasoner;
     private final AgentSafetyBoundary safetyBoundary;
     private final int maximumToolCalls;
+    private final AgentRuntimeTelemetry telemetry;
+    private final LongSupplier nanoTime;
 
     public ReferenceStewardAgent(McpCapabilityClient capabilities, StewardReasoner reasoner) {
-        this(capabilities, reasoner, DEFAULT_MAX_TOOL_CALLS);
+        this(capabilities, reasoner, DEFAULT_MAX_TOOL_CALLS, AgentRuntimeTelemetry.NOOP);
     }
 
     public ReferenceStewardAgent(
             McpCapabilityClient capabilities,
             StewardReasoner reasoner,
             int maximumToolCalls) {
+        this(capabilities, reasoner, maximumToolCalls, AgentRuntimeTelemetry.NOOP);
+    }
+
+    public ReferenceStewardAgent(
+            McpCapabilityClient capabilities,
+            StewardReasoner reasoner,
+            AgentRuntimeTelemetry telemetry) {
+        this(capabilities, reasoner, DEFAULT_MAX_TOOL_CALLS, telemetry);
+    }
+
+    public ReferenceStewardAgent(
+            McpCapabilityClient capabilities,
+            StewardReasoner reasoner,
+            int maximumToolCalls,
+            AgentRuntimeTelemetry telemetry) {
+        this(capabilities, reasoner, maximumToolCalls, telemetry, System::nanoTime);
+    }
+
+    ReferenceStewardAgent(
+            McpCapabilityClient capabilities,
+            StewardReasoner reasoner,
+            int maximumToolCalls,
+            AgentRuntimeTelemetry telemetry,
+            LongSupplier nanoTime) {
         this.capabilities = Objects.requireNonNull(capabilities, "capabilities must not be null");
         this.reasoner = Objects.requireNonNull(reasoner, "reasoner must not be null");
         this.safetyBoundary = new AgentSafetyBoundary();
@@ -35,27 +63,37 @@ public final class ReferenceStewardAgent {
             throw new IllegalArgumentException("maximumToolCalls must be between 1 and 16");
         }
         this.maximumToolCalls = maximumToolCalls;
+        this.telemetry = Objects.requireNonNull(telemetry, "telemetry must not be null");
+        this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime must not be null");
     }
 
     public AgentRunResult run(AgentGoal goal) {
         Objects.requireNonNull(goal, "goal must not be null");
         List<AgentObservation> observations = new ArrayList<>();
+        long started = nanoTime.getAsLong();
+        try {
+            AgentRunResult result = execute(goal, observations);
+            emit(() -> telemetry.runCompleted(observations.size(), elapsed(started)));
+            return result;
+        } catch (RuntimeException failure) {
+            emit(() -> telemetry.runFailed(
+                    failureCode(failure), observations.size(), elapsed(started)));
+            throw failure;
+        }
+    }
+
+    private AgentRunResult execute(AgentGoal goal, List<AgentObservation> observations) {
         AgentPhase phase = AgentPhase.PROFILE;
 
         while (true) {
             int remaining = maximumToolCalls - observations.size();
-            AgentDirective directive = Objects.requireNonNull(
-                    reasoner.next(safetyBoundary.prepare(
-                            goal, phase, observations, remaining, ALLOWED_TOOLS.get(phase))),
-                    "reasoner directive must not be null");
+            AgentDirective directive = nextDirective(goal, phase, observations, remaining);
             if (directive instanceof AgentDirective.CallTool call) {
                 if (remaining == 0) {
                     throw violation("TOOL_CALL_LIMIT_EXCEEDED", "agent tool-call limit is exhausted");
                 }
                 requireAllowed(phase, call.toolName());
-                Map<String, Object> result = Objects.requireNonNull(
-                        capabilities.call(call.toolName(), call.arguments()),
-                        "MCP capability result must not be null");
+                Map<String, Object> result = callTool(phase, call);
                 observations.add(new AgentObservation(
                         observations.size() + 1,
                         phase,
@@ -79,6 +117,73 @@ public final class ReferenceStewardAgent {
             }
             return new AgentRunResult(
                     goal, ((AgentDirective.Complete) directive).outcomeCode(), observations);
+        }
+    }
+
+    private AgentDirective nextDirective(
+            AgentGoal goal,
+            AgentPhase phase,
+            List<AgentObservation> observations,
+            int remaining) {
+        long started = nanoTime.getAsLong();
+        try {
+            AgentDirective directive = Objects.requireNonNull(
+                    reasoner.next(safetyBoundary.prepare(
+                            goal, phase, observations, remaining, ALLOWED_TOOLS.get(phase))),
+                    "reasoner directive must not be null");
+            ModelTokenUsage usage = tokenUsage();
+            emit(() -> telemetry.modelDecision(phase, "SUCCESS", elapsed(started), usage));
+            return directive;
+        } catch (RuntimeException failure) {
+            emit(() -> telemetry.modelDecision(
+                    phase, "FAILED", elapsed(started), ModelTokenUsage.unavailable()));
+            throw failure;
+        }
+    }
+
+    private Map<String, Object> callTool(AgentPhase phase, AgentDirective.CallTool call) {
+        long started = nanoTime.getAsLong();
+        try {
+            Map<String, Object> result = Objects.requireNonNull(
+                    capabilities.call(call.toolName(), call.arguments()),
+                    "MCP capability result must not be null");
+            emit(() -> telemetry.toolCall(phase, call.toolName(), "SUCCESS", elapsed(started)));
+            return result;
+        } catch (RuntimeException failure) {
+            emit(() -> telemetry.toolCall(
+                    phase, call.toolName(), failureCode(failure), elapsed(started)));
+            throw failure;
+        }
+    }
+
+    private ModelTokenUsage tokenUsage() {
+        try {
+            return Objects.requireNonNullElse(
+                    reasoner.lastTokenUsage(), ModelTokenUsage.unavailable());
+        } catch (RuntimeException ignored) {
+            return ModelTokenUsage.unavailable();
+        }
+    }
+
+    private Duration elapsed(long started) {
+        return Duration.ofNanos(Math.max(0, nanoTime.getAsLong() - started));
+    }
+
+    private static String failureCode(RuntimeException failure) {
+        if (failure instanceof McpClientException transport) {
+            return transport.code();
+        }
+        if (failure instanceof AgentPolicyViolationException policy) {
+            return policy.code();
+        }
+        return "AGENT_RUNTIME_FAILED";
+    }
+
+    private static void emit(Runnable signal) {
+        try {
+            signal.run();
+        } catch (RuntimeException ignored) {
+            // Telemetry is deliberately unable to alter governed workflow behavior.
         }
     }
 

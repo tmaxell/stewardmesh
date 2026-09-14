@@ -25,7 +25,7 @@ class PublishedSupervisorContractTest {
             contract = json.readTree(input);
         }
 
-        assertEquals("1.2.0", contract.path("contractVersion").asString());
+        assertEquals("1.3.0", contract.path("contractVersion").asString());
         assertEquals(
                 Arrays.stream(AgentPhase.values()).map(Enum::name).toList(),
                 contract.path("workflow").path("phases").valueStream()
@@ -75,5 +75,27 @@ class PublishedSupervisorContractTest {
                 AgentSafetyBoundary.MAX_STRING_CHARACTERS,
                 limits.path("maximumStringCharacters").asInt());
         assertFalse(TrustedAgentPolicy.standard().instruction().contains("toolResult"));
+        JsonNode recovery = contract.path("recoveryPolicy");
+        assertEquals(
+                SafeRetryingMcpCapabilityClient.DEFAULT_MAXIMUM_ATTEMPTS,
+                recovery.path("maximumAttempts").asInt());
+        assertEquals(
+                SafeRetryingMcpCapabilityClient.DEFAULT_INITIAL_BACKOFF.toMillis(),
+                recovery.path("initialBackoffMillis").asLong());
+        Set<String> retryableCapabilities = recovery.path("retryableCapabilities").valueStream()
+                .map(JsonNode::asString)
+                .collect(Collectors.toUnmodifiableSet());
+        assertEquals(SafeRetryingMcpCapabilityClient.retryableTools(), retryableCapabilities);
+        Set<String> retryableFailures = recovery.path("retryableFailureCodes").valueStream()
+                .map(JsonNode::asString)
+                .collect(Collectors.toUnmodifiableSet());
+        assertEquals(SafeRetryingMcpCapabilityClient.retryableFailureCodes(), retryableFailures);
+        assertTrue(recovery.path("neverRetryAfterUncertainResult").valueStream()
+                .map(JsonNode::asString)
+                .anyMatch("create_onboarding_proposal"::equals));
+        assertEquals("BEST_EFFORT", contract.path("telemetry").path("failureMode").asString());
+        assertTrue(contract.path("telemetry").path("forbiddenLabels").valueStream()
+                .map(JsonNode::asString)
+                .anyMatch("accessToken"::equals));
     }
 }
