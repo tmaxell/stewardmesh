@@ -213,7 +213,7 @@ class GoldenRecordPersistenceIT extends PostgreSqlIntegrationTestSupport {
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 256,
                 INGESTED_AT.minusSeconds(60));
-        artifactRepository.save(artifact);
+        artifactRepository.register(artifact);
         var job = ImportJob.received(
                 new ImportJobId(UUID.randomUUID()),
                 artifact.id(),

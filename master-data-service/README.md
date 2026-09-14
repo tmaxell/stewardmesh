@@ -15,6 +15,8 @@ The separate `steward-agent` module is active and depends on no master-data-serv
 
 Intake profiling and column mapping remain read-only and value-free. The service suggests only exact canonical names or members of a closed, versioned alias set, reports ambiguous target collisions instead of guessing, and validates explicit one-to-one mappings before returning aggregate readiness. Headers and blank/non-blank/formula counts may be returned; workbook row values are never included.
 
+Intake registration is content-addressed and therefore concurrency-safe by construction. Both the artifact digest and the request identity are claimed in one atomic statement that PostgreSQL resolves, so two callers uploading identical bytes, or retrying the same idempotency key at the same moment, cannot both insert. The caller that loses the race rolls back and retries once, by which point the winning record is committed and the ordinary replay path answers it. A raced retry is reported as a replay, never as a client conflict.
+
 The identity-resolution domain distinguishes party and supplier-site candidates, retains bounded feature-level evidence, and applies explicit versioned thresholds. Authoritative identifier conflicts can never produce an automatic link.
 
 Candidate blocking is exposed through a bounded application use case and persistence-neutral output ports. The application layer deduplicates evidence, orders results deterministically, and reports truncation; query strategy and storage remain adapter concerns.

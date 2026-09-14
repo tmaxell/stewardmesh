@@ -109,6 +109,18 @@ The Phase 3 acceptance proof synchronizes a versioned synthetic business unit fr
 
 Run `./scripts/verify-phase-3.sh` for the complete repository gate. All Phase 3 fixtures, identities, reference events and supplier values are synthetic.
 
+## Concurrency smoke
+
+`SupplierIntakeLoadSmokeIT` drives the deployed stack over real HTTP with real signed tokens, because a load check that bypasses the servlet container and the security filter chain measures something the deployment never runs. Twelve tenants import concurrently and eight identical requests race one idempotency key.
+
+It asserts invariants rather than speed: every tenant keeps its own import, no projection identity is duplicated by a lost update, and a raced idempotency key collapses into exactly one import with exactly one attempt reporting itself as the original. The latency ceilings are generous enough to stay meaningful on slower hardware; they catch a collapse, not a regression of a few milliseconds.
+
+```bash
+./mvnw --batch-mode --no-transfer-progress \
+  -pl master-data-service/bootstrap-master-service -am verify \
+  -Dit.test=SupplierIntakeLoadSmokeIT -Dfailsafe.failIfNoSpecifiedTests=false
+```
+
 Actuator health, metrics and Prometheus output are exposed under `/actuator`. Metrics cover intake outcomes, rows, artifact bytes, stage duration/failures, validation codes, match-scoring duration/failures, bounded candidate counts and decision outcomes.
 
 Governed execution and messaging are instrumented at the composition root rather than inside the use cases, so a metric can never roll back a business transaction. Counters separate approvals from rejections and first decisions from idempotent replays, time and count executions with their committed effects, and record inbox ingress by outcome and reason, event lag, and broker delivery success or failure per event type. Structured logs report quarantine, loop suppression and failed delivery with the event id, event type and reason code.
