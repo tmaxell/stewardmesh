@@ -140,7 +140,7 @@ class StewardMeshApplicationIT {
         assertNotNull(profileIntakeArtifact);
         assertNotNull(consumeReferenceDataEvent);
         assertNotNull(publishMasterDataEvents);
-        assertEquals(7, toolCallbacks.getToolCallbacks().length);
+        assertEquals(9, toolCallbacks.getToolCallbacks().length);
     }
 
     @Test
