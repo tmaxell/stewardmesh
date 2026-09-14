@@ -130,6 +130,31 @@ class SafeRetryingMcpCapabilityClientTest {
                 () -> SafeRetryingMcpCapabilityClient.retryableTools().add("unsafe"));
     }
 
+    @Test
+    void reportsRetriesWithoutAllowingTelemetryFailureToChangeRecovery() {
+        List<String> retries = new ArrayList<>();
+        AgentRuntimeTelemetry telemetry = new AgentRuntimeTelemetry() {
+            @Override
+            public void retryScheduled(
+                    String toolName, String failureCode, int attempt, Duration backoff) {
+                retries.add(toolName + ":" + failureCode + ":" + attempt);
+                throw new IllegalStateException("synthetic telemetry outage");
+            }
+        };
+        AtomicInteger attempts = new AtomicInteger();
+        var client = new SafeRetryingMcpCapabilityClient(
+                (tool, arguments) -> attempts.incrementAndGet() == 1
+                        ? fail("MCP_CALL_TIMEOUT")
+                        : Map.of("status", "RECOVERED"),
+                2,
+                Duration.ofMillis(1),
+                ignored -> {},
+                telemetry);
+
+        assertEquals("RECOVERED", client.call("get_import_status", Map.of()).get("status"));
+        assertEquals(List.of("get_import_status:MCP_CALL_TIMEOUT:1"), retries);
+    }
+
     private static SafeRetryingMcpCapabilityClient client(
             McpCapabilityClient delegate,
             int attempts,
@@ -140,5 +165,9 @@ class SafeRetryingMcpCapabilityClientTest {
 
     private static McpClientException failure(String code) {
         return new McpClientException(code, "synthetic failure");
+    }
+
+    private static Map<String, Object> fail(String code) {
+        throw failure(code);
     }
 }

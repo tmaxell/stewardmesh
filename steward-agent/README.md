@@ -10,4 +10,8 @@ Every MCP result crosses an explicit untrusted-content boundary before a reasone
 
 `StreamableHttpMcpCapabilityClient` is the only master-data access adapter. It performs the authenticated MCP handshake, sends a bearer token on every request, validates the session and response envelope, and returns bounded structured tool content. It has no dependency on any master-data-service module. The versioned workflow contract is [`contracts/agent/reference-supervisor-v1.json`](../contracts/agent/reference-supervisor-v1.json).
 
+Production callers wrap that transport in `SafeRetryingMcpCapabilityClient`. Timeout, transport and temporary-server failures may be retried at most three times with bounded backoff, but only for the published read/simulate capability set. Proposal creation is never retried after an uncertain response; authorization, protocol and tool rejections fail immediately. Interrupted backoff preserves the thread interruption signal.
+
+`AgentRuntimeTelemetry` exposes best-effort model latency and optional token usage, logical tool-call latency, retry decisions and run outcomes. Its API accepts only bounded phase/tool/outcome codes and aggregate measurements—not goals, identifiers, arguments, results, credentials or supplier values. A telemetry failure cannot change workflow, retry or mutation behavior.
+
 The first vertical slice deliberately leaves model selection outside the workflow core: a local or hosted model implements `StewardReasoner` without changing phase policy or MCP transport. Multiple autonomous agents are a later optimization and require eval evidence.

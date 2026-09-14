@@ -29,9 +29,20 @@ public final class SafeRetryingMcpCapabilityClient implements McpCapabilityClien
     private final int maximumAttempts;
     private final Duration initialBackoff;
     private final RetryDelay delay;
+    private final AgentRuntimeTelemetry telemetry;
 
     public SafeRetryingMcpCapabilityClient(McpCapabilityClient delegate) {
-        this(delegate, DEFAULT_MAXIMUM_ATTEMPTS, DEFAULT_INITIAL_BACKOFF, Thread::sleep);
+        this(delegate, AgentRuntimeTelemetry.NOOP);
+    }
+
+    public SafeRetryingMcpCapabilityClient(
+            McpCapabilityClient delegate, AgentRuntimeTelemetry telemetry) {
+        this(
+                delegate,
+                DEFAULT_MAXIMUM_ATTEMPTS,
+                DEFAULT_INITIAL_BACKOFF,
+                Thread::sleep,
+                telemetry);
     }
 
     SafeRetryingMcpCapabilityClient(
@@ -39,6 +50,15 @@ public final class SafeRetryingMcpCapabilityClient implements McpCapabilityClien
             int maximumAttempts,
             Duration initialBackoff,
             RetryDelay delay) {
+        this(delegate, maximumAttempts, initialBackoff, delay, AgentRuntimeTelemetry.NOOP);
+    }
+
+    SafeRetryingMcpCapabilityClient(
+            McpCapabilityClient delegate,
+            int maximumAttempts,
+            Duration initialBackoff,
+            RetryDelay delay,
+            AgentRuntimeTelemetry telemetry) {
         this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
         if (maximumAttempts < 1 || maximumAttempts > DEFAULT_MAXIMUM_ATTEMPTS) {
             throw new IllegalArgumentException("maximumAttempts must be between 1 and 3");
@@ -49,6 +69,7 @@ public final class SafeRetryingMcpCapabilityClient implements McpCapabilityClien
             throw new IllegalArgumentException("initialBackoff must be positive");
         }
         this.delay = Objects.requireNonNull(delay, "delay must not be null");
+        this.telemetry = Objects.requireNonNull(telemetry, "telemetry must not be null");
     }
 
     @Override
@@ -62,13 +83,21 @@ public final class SafeRetryingMcpCapabilityClient implements McpCapabilityClien
                 if (!shouldRetry(toolName, failure.code(), attempt)) {
                     throw failure;
                 }
-                pause(initialBackoff.multipliedBy(attempt));
+                int currentAttempt = attempt;
+                Duration backoff = initialBackoff.multipliedBy(attempt);
+                emit(() -> telemetry.retryScheduled(
+                        toolName, failure.code(), currentAttempt, backoff));
+                pause(backoff);
             }
         }
     }
 
     public static Set<String> retryableTools() {
         return RETRYABLE_TOOLS;
+    }
+
+    public static Set<String> retryableFailureCodes() {
+        return RETRYABLE_FAILURES;
     }
 
     private boolean shouldRetry(String toolName, String failureCode, int attempt) {
@@ -84,6 +113,14 @@ public final class SafeRetryingMcpCapabilityClient implements McpCapabilityClien
             Thread.currentThread().interrupt();
             throw new McpClientException(
                     "MCP_RETRY_INTERRUPTED", "MCP retry backoff was interrupted", exception);
+        }
+    }
+
+    private static void emit(Runnable signal) {
+        try {
+            signal.run();
+        } catch (RuntimeException ignored) {
+            // Telemetry is deliberately unable to alter retry or business behavior.
         }
     }
 
