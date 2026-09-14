@@ -25,7 +25,7 @@ class PublishedSupervisorContractTest {
             contract = json.readTree(input);
         }
 
-        assertEquals("1.1.0", contract.path("contractVersion").asString());
+        assertEquals("1.2.0", contract.path("contractVersion").asString());
         assertEquals(
                 Arrays.stream(AgentPhase.values()).map(Enum::name).toList(),
                 contract.path("workflow").path("phases").valueStream()
@@ -39,6 +39,13 @@ class PublishedSupervisorContractTest {
                     .map(JsonNode::asString)
                     .collect(Collectors.toUnmodifiableSet());
             assertEquals(ReferenceStewardAgent.allowedTools(phase), published);
+            Set<String> required = contract.path("requiredCapabilitiesBeforeAdvance")
+                    .path(phase.name())
+                    .valueStream()
+                    .map(JsonNode::asString)
+                    .collect(Collectors.toUnmodifiableSet());
+            assertEquals(ReferenceStewardAgent.requiredTools(phase), required);
+            assertTrue(published.containsAll(required));
         }
         Set<String> prohibited = contract.path("prohibitedCapabilities").valueStream()
                 .map(JsonNode::asString)

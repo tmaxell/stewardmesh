@@ -5,11 +5,15 @@ import io.stewardmesh.masterdata.application.intake.GetSupplierImportReportServi
 import io.stewardmesh.masterdata.application.intake.GetSupplierImportStatusService;
 import io.stewardmesh.masterdata.application.intake.ProcessSupplierImportService;
 import io.stewardmesh.masterdata.application.intake.ProfileIntakeArtifactService;
+import io.stewardmesh.masterdata.application.intake.PreviewMappedRecordsService;
+import io.stewardmesh.masterdata.application.intake.SuggestIntakeMappingService;
 import io.stewardmesh.masterdata.application.intake.StartSupplierImportService;
 import io.stewardmesh.masterdata.application.port.in.GetSupplierImportReport;
 import io.stewardmesh.masterdata.application.port.in.GetSupplierImportStatus;
 import io.stewardmesh.masterdata.application.port.in.ProcessSupplierImport;
 import io.stewardmesh.masterdata.application.port.in.ProfileIntakeArtifact;
+import io.stewardmesh.masterdata.application.port.in.PreviewMappedRecords;
+import io.stewardmesh.masterdata.application.port.in.SuggestIntakeMapping;
 import io.stewardmesh.masterdata.application.port.in.StartSupplierImport;
 import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
 import io.stewardmesh.masterdata.application.port.out.IdempotencyRepository;
@@ -88,6 +92,16 @@ class SupplierImportUseCaseConfiguration {
             ProfileSupplierWorkbook workbookProfiler) {
         return new ProfileIntakeArtifactService(
                 importJobRepository, artifactStorage, workbookProfiler);
+    }
+
+    @Bean
+    SuggestIntakeMapping suggestIntakeMapping(ProfileIntakeArtifact profiles) {
+        return new SuggestIntakeMappingService(profiles);
+    }
+
+    @Bean
+    PreviewMappedRecords previewMappedRecords(ProfileIntakeArtifact profiles) {
+        return new PreviewMappedRecordsService(profiles);
     }
 
     @Bean

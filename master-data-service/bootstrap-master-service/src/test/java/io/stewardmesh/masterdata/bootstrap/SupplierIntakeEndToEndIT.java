@@ -137,7 +137,8 @@ class SupplierIntakeEndToEndIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalIssues").value(0));
 
-        var profile = new StreamableMcpTestClient(mockMvc, objectMapper).call(
+        var mcp = new StreamableMcpTestClient(mockMvc, objectMapper);
+        var profile = mcp.call(
                 "synthetic-profile-reader",
                 "mdm.supplier.read",
                 "profile_intake_artifact",
@@ -148,6 +149,35 @@ class SupplierIntakeEndToEndIT {
         assertEquals(14, profile.read("$.columns.length()", Integer.class));
         assertTrue(profile.read("$.artifactId", String.class).matches("^[0-9a-f-]{36}$"));
         assertTrue(!profile.jsonString().contains("Синтетик"));
+
+        var suggestion = mcp.call(
+                "synthetic-profile-reader",
+                "mdm.supplier.read",
+                "suggest_schema_mapping",
+                Map.of("importId", importId));
+        assertEquals("supplier-column-mapping-v1", suggestion.read("$.schemaVersion", String.class));
+        assertEquals(14, suggestion.read("$.columns.length()", Integer.class));
+        assertEquals(0, suggestion.read("$.missingRequiredColumns.length()", Integer.class));
+        assertTrue(!suggestion.jsonString().contains("Синтетик"));
+
+        List<String> canonicalColumns = List.of(
+                "source_record_id", "source_version", "legal_name", "inn", "kpp", "ogrn",
+                "country_code", "postal_code", "region", "city", "address_line", "site_code",
+                "procurement_bu_code", "site_purpose");
+        List<Map<String, Object>> selectedMappings = java.util.stream.IntStream.range(0, canonicalColumns.size())
+                .mapToObj(index -> Map.<String, Object>of(
+                        "sourcePosition", index + 1,
+                        "targetColumn", canonicalColumns.get(index)))
+                .toList();
+        var preview = mcp.call(
+                "synthetic-profile-reader",
+                "mdm.supplier.read",
+                "preview_mapped_records",
+                Map.of("importId", importId, "mappings", selectedMappings));
+        assertEquals("READY", preview.read("$.readiness", String.class));
+        assertEquals(3, preview.read("$.dataRows", Integer.class));
+        assertEquals(14, preview.read("$.columns.length()", Integer.class));
+        assertTrue(!preview.jsonString().contains("Синтетик"));
 
         assertTrue(elapsed.compareTo(Duration.ofSeconds(15)) < 0, () -> "intake took " + elapsed);
         assertEquals(1, count("SELECT COUNT(*) FROM import_job WHERE source_system = ?", "E2E_VALID"));
