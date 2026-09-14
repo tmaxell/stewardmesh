@@ -99,7 +99,10 @@ public class SupplierImportController {
         telemetry.started(content.sizeBytes(), started.replayed());
 
         ImportStatus finalStatus = started.status();
-        if (started.status() == ImportStatus.RECEIVED) {
+        // Only the caller that created the import drives its pipeline. A replay that also drove it
+        // would process the same job from two threads at once and lose the optimistic lock, which
+        // is what a client retrying after a timeout actually does.
+        if (!started.replayed() && started.status() == ImportStatus.RECEIVED) {
             ProcessSupplierImportResult processed = processSupplierImport.execute(started.importJobId());
             telemetry.completed(startedAt, processed);
             finalStatus = processed.status();

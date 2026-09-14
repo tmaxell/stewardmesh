@@ -38,6 +38,7 @@ import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -60,6 +61,8 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 /**
@@ -93,6 +96,7 @@ class SupplierIntakeLoadSmokeIT {
     private static final int CONCURRENT_REPLAYS = 8;
     private static final Duration WORST_CASE_IMPORT = Duration.ofSeconds(20);
     private static final Duration WORST_CASE_BATCH = Duration.ofSeconds(60);
+    private static final int BUCKET_ATTEMPTS = 10;
 
     private static final RSAKey SIGNING_KEY = generateKey();
     private static final HttpServer JWK_SERVER = startJwkServer();
@@ -135,7 +139,6 @@ class SupplierIntakeLoadSmokeIT {
 
     @Test
     void sustainsConcurrentDistinctImportsWithoutLosingOrDuplicatingAnEffect() throws Exception {
-        createBucket();
         List<Upload> uploads = new ArrayList<>();
         for (int tenant = 1; tenant <= CONCURRENT_TENANTS; tenant++) {
             uploads.add(new Upload(
@@ -189,7 +192,6 @@ class SupplierIntakeLoadSmokeIT {
 
     @Test
     void collapsesAConcurrentIdempotentReplayIntoOneImport() throws Exception {
-        createBucket();
         byte[] workbook = SyntheticSupplierWorkbooks.forTenant(99);
         String sourceSystem = "LOAD_REPLAY";
         String key = "load-replay-1";
@@ -358,11 +360,26 @@ class SupplierIntakeLoadSmokeIT {
         }
     }
 
-    private static void createBucket() {
-        try (S3Client client = s3Client()) {
-            client.createBucket(CreateBucketRequest.builder().bucket(BUCKET).build());
-        } catch (RuntimeException alreadyExists) {
-            // The bucket survives between test methods; creating it twice is not a failure.
+    /**
+     * LocalStack answers its health endpoint before S3 finishes starting, so creation is retried
+     * briefly. The last attempt is allowed to fail loudly: a swallowed failure here would surface
+     * later as every upload returning 500, which says nothing about the real cause.
+     */
+    @BeforeAll
+    static void createBucket() throws InterruptedException {
+        var request = CreateBucketRequest.builder().bucket(BUCKET).build();
+        for (int attempt = 1; ; attempt++) {
+            try (S3Client client = s3Client()) {
+                client.createBucket(request);
+                return;
+            } catch (BucketAlreadyOwnedByYouException | BucketAlreadyExistsException existing) {
+                return;
+            } catch (RuntimeException notReadyYet) {
+                if (attempt == BUCKET_ATTEMPTS) {
+                    throw notReadyYet;
+                }
+                Thread.sleep(Duration.ofSeconds(1));
+            }
         }
     }
 
