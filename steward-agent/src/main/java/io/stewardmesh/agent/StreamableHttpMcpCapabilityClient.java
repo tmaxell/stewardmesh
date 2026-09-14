@@ -3,6 +3,7 @@ package io.stewardmesh.agent;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -67,6 +68,8 @@ public final class StreamableHttpMcpCapabilityClient implements McpCapabilityCli
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new McpClientException("MCP_CALL_INTERRUPTED", "MCP call was interrupted", exception);
+        } catch (HttpTimeoutException exception) {
+            throw new McpClientException("MCP_CALL_TIMEOUT", "MCP call timed out", exception);
         } catch (IOException exception) {
             throw new McpClientException("MCP_TRANSPORT_FAILED", "MCP transport failed", exception);
         }
@@ -142,9 +145,19 @@ public final class StreamableHttpMcpCapabilityClient implements McpCapabilityCli
     }
 
     private static void requireSuccess(HttpResponse<String> response, String code) {
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new McpClientException(code, "MCP server returned HTTP " + response.statusCode());
+        int status = response.statusCode();
+        if (status >= 200 && status < 300) {
+            return;
         }
+        if (status == 401 || status == 403) {
+            throw new McpClientException(
+                    "MCP_AUTHORIZATION_FAILED", "MCP server refused the caller credentials");
+        }
+        if (status == 408 || status == 429 || status >= 500) {
+            throw new McpClientException(
+                    "MCP_SERVER_UNAVAILABLE", "MCP server is temporarily unavailable");
+        }
+        throw new McpClientException(code, "MCP server returned HTTP " + status);
     }
 
     private static String protocolPayload(String body) {

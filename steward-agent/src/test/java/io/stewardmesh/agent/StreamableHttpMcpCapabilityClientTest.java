@@ -11,6 +11,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -110,6 +112,41 @@ class StreamableHttpMcpCapabilityClientTest {
         assertEquals(0, requests.get());
     }
 
+    @Test
+    void classifiesTimeoutAuthorizationAndTemporaryServerFailures() {
+        server = server(exchange -> {
+            Thread.sleep(250);
+            respond(exchange, 200, "{}", Map.of("Mcp-Session-Id", "late-session"));
+        });
+        var timeoutClient = client(Duration.ofMillis(25));
+        assertEquals(
+                "MCP_CALL_TIMEOUT",
+                assertThrows(
+                                McpClientException.class,
+                                () -> timeoutClient.call("profile_intake_artifact", Map.of()))
+                        .code());
+
+        server.stop(0);
+        server = server(exchange -> respond(exchange, 401, "", Map.of()));
+        assertEquals(
+                "MCP_AUTHORIZATION_FAILED",
+                assertThrows(
+                                McpClientException.class,
+                                () -> client(Duration.ofSeconds(1))
+                                        .call("profile_intake_artifact", Map.of()))
+                        .code());
+
+        server.stop(0);
+        server = server(exchange -> respond(exchange, 503, "", Map.of()));
+        assertEquals(
+                "MCP_SERVER_UNAVAILABLE",
+                assertThrows(
+                                McpClientException.class,
+                                () -> client(Duration.ofSeconds(1))
+                                        .call("profile_intake_artifact", Map.of()))
+                        .code());
+    }
+
     private HttpServer server(ThrowingHandler handler) {
         try {
             HttpServer created = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -130,6 +167,11 @@ class StreamableHttpMcpCapabilityClientTest {
 
     private URI endpoint() {
         return URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/mcp");
+    }
+
+    private StreamableHttpMcpCapabilityClient client(Duration timeout) {
+        return new StreamableHttpMcpCapabilityClient(
+                endpoint(), HttpClient.newHttpClient(), json, () -> "synthetic-token", timeout);
     }
 
     private static void respond(
