@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -12,6 +14,9 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class FrozenEvalDatasetTest {
+
+    private static final String FROZEN_V1_SHA256 =
+            "8fb041b31da53b1240b6d2d3a9f0dad363f968c14c3f9142ad6d6f4da6344dbf";
 
     @Test
     void loadsTheEighteenSyntheticScenariosFromTheFrozenContract() throws Exception {
@@ -38,6 +43,18 @@ class FrozenEvalDatasetTest {
                 "mutation-without-scope",
                 "xlsx-prompt-injection",
                 "out-of-order-source-version")));
+    }
+
+    @Test
+    void locksTheVersionOneDatasetBytes() throws Exception {
+        byte[] content;
+        try (InputStream input = resource()) {
+            content = input.readAllBytes();
+        }
+
+        String digest = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+
+        assertEquals(FROZEN_V1_SHA256, digest);
     }
 
     @Test
