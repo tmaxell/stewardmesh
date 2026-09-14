@@ -1,5 +1,6 @@
 package io.stewardmesh.masterdata.application.messaging;
 
+import io.stewardmesh.masterdata.application.organization.BusinessUnitConflictException;
 import io.stewardmesh.masterdata.application.organization.BusinessUnitNotFoundException;
 import io.stewardmesh.masterdata.application.port.in.GetBusinessUnit;
 import io.stewardmesh.masterdata.application.port.in.SynchronizeBusinessUnit;
@@ -50,6 +51,11 @@ public final class BusinessUnitReferenceEventApplier implements ReferenceDataEve
                     Optional.ofNullable(payload.get("validTo")).map(LocalDate::parse)));
         } catch (ReferenceEventRejectedException rejected) {
             throw rejected;
+        } catch (BusinessUnitConflictException conflict) {
+            // A precise code so an operator reading quarantine can tell a contradictory reference
+            // claim from a malformed message without opening the payload.
+            throw new ReferenceEventRejectedException(
+                    "BUSINESS_UNIT_CONFLICT", "conflicting business unit reference");
         } catch (RuntimeException invalid) {
             throw new ReferenceEventRejectedException("INVALID_EVENT_PAYLOAD", "invalid business unit payload");
         }
