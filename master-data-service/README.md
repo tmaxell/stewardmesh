@@ -13,6 +13,8 @@ Authoritative modular MDM service. Active foundation modules:
 
 The separate `steward-agent` module is active and depends on no master-data-service module. It consumes the service exclusively through authenticated MCP. Within the authoritative service, dependencies still point inward: domain <- application <- adapters <- bootstrap.
 
+Intake profiling and column mapping remain read-only and value-free. The service suggests only exact canonical names or members of a closed, versioned alias set, reports ambiguous target collisions instead of guessing, and validates explicit one-to-one mappings before returning aggregate readiness. Headers and blank/non-blank/formula counts may be returned; workbook row values are never included.
+
 The identity-resolution domain distinguishes party and supplier-site candidates, retains bounded feature-level evidence, and applies explicit versioned thresholds. Authoritative identifier conflicts can never produce an automatic link.
 
 Candidate blocking is exposed through a bounded application use case and persistence-neutral output ports. The application layer deduplicates evidence, orders results deterministically, and reports truncation; query strategy and storage remain adapter concerns.

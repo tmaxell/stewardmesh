@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -23,8 +24,12 @@ class ReferenceStewardAgentTest {
     void completesTheFourPhaseWorkflowThroughMcpCapabilitiesOnly() {
         Deque<AgentDirective> script = new ArrayDeque<>(List.of(
                 call("profile_intake_artifact", "PROFILE_COLLECTED"),
+                call("suggest_schema_mapping", "MAPPING_SUGGESTED"),
+                call("preview_mapped_records", "MAPPING_PREVIEWED"),
                 advance(AgentPhase.IDENTIFY),
+                call("get_import_status", "IMPORT_STATUS_CHECKED"),
                 call("find_party_candidates", "PARTY_CANDIDATES_CHECKED"),
+                call("find_site_candidates", "SITE_CANDIDATES_CHECKED"),
                 advance(AgentPhase.PLAN),
                 call("create_onboarding_proposal", "PROPOSAL_CREATED"),
                 call("simulate_onboarding_plan", "PLAN_SIMULATED"),
@@ -42,11 +47,15 @@ class ReferenceStewardAgentTest {
         AgentRunResult result = agent.run(GOAL);
 
         assertEquals("PROPOSAL_READY_FOR_HUMAN_REVIEW", result.outcomeCode());
-        assertEquals(5, result.observations().size());
+        assertEquals(9, result.observations().size());
         assertEquals(
                 List.of(
                         "profile_intake_artifact",
+                        "suggest_schema_mapping",
+                        "preview_mapped_records",
+                        "get_import_status",
                         "find_party_candidates",
+                        "find_site_candidates",
                         "create_onboarding_proposal",
                         "simulate_onboarding_plan",
                         "get_action_plan"),
@@ -78,6 +87,8 @@ class ReferenceStewardAgentTest {
 
         Deque<AgentDirective> script = new ArrayDeque<>(List.of(
                 call("profile_intake_artifact", "PROFILE_COLLECTED"),
+                call("suggest_schema_mapping", "MAPPING_SUGGESTED"),
+                call("preview_mapped_records", "MAPPING_PREVIEWED"),
                 advance(AgentPhase.PLAN)));
         var invalidTransition = new ReferenceStewardAgent(
                 (tool, arguments) -> Map.of(), ignored -> script.removeFirst());
@@ -87,6 +98,22 @@ class ReferenceStewardAgentTest {
                                 AgentPolicyViolationException.class,
                                 () -> invalidTransition.run(GOAL))
                         .code());
+    }
+
+    @Test
+    void rejectsPhaseAdvanceUntilEveryRequiredEvidenceCapabilityWasObserved() {
+        Deque<AgentDirective> script = new ArrayDeque<>(List.of(
+                call("profile_intake_artifact", "PROFILE_COLLECTED"),
+                call("suggest_schema_mapping", "MAPPING_SUGGESTED"),
+                advance(AgentPhase.IDENTIFY)));
+        var agent = new ReferenceStewardAgent(
+                (tool, arguments) -> Map.of("status", "synthetic"),
+                ignored -> script.removeFirst());
+
+        AgentPolicyViolationException exception = assertThrows(
+                AgentPolicyViolationException.class, () -> agent.run(GOAL));
+
+        assertEquals("PHASE_REQUIRED_EVIDENCE_MISSING", exception.code());
     }
 
     @Test
@@ -106,6 +133,9 @@ class ReferenceStewardAgentTest {
     void exposesImmutablePhaseAllowlistsWithoutApprovalOrExecution() {
         assertTrue(ReferenceStewardAgent.allowedTools(AgentPhase.PROFILE)
                 .contains("profile_intake_artifact"));
+        assertEquals(
+                Set.of("profile_intake_artifact", "suggest_schema_mapping", "preview_mapped_records"),
+                ReferenceStewardAgent.requiredTools(AgentPhase.PROFILE));
         for (AgentPhase phase : AgentPhase.values()) {
             assertFalse(ReferenceStewardAgent.allowedTools(phase).contains("approve_action_plan"));
             assertFalse(ReferenceStewardAgent.allowedTools(phase).contains("execute_approved_plan"));
@@ -113,6 +143,9 @@ class ReferenceStewardAgentTest {
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> ReferenceStewardAgent.allowedTools(AgentPhase.PLAN).add("unsafe"));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> ReferenceStewardAgent.requiredTools(AgentPhase.PLAN).add("unsafe"));
     }
 
     @Test

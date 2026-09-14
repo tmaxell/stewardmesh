@@ -13,6 +13,7 @@ public final class ReferenceStewardAgent {
     public static final int DEFAULT_MAX_TOOL_CALLS = 16;
 
     private static final Map<AgentPhase, Set<String>> ALLOWED_TOOLS = allowedTools();
+    private static final Map<AgentPhase, Set<String>> REQUIRED_TOOLS = requiredTools();
 
     private final McpCapabilityClient capabilities;
     private final StewardReasoner reasoner;
@@ -64,7 +65,7 @@ public final class ReferenceStewardAgent {
                 continue;
             }
             if (directive instanceof AgentDirective.Advance advance) {
-                requireObserved(phase, observations);
+                requireEvidence(phase, observations);
                 AgentPhase expected = next(phase);
                 if (advance.nextPhase() != expected) {
                     throw violation("PHASE_TRANSITION_INVALID", "agent phases cannot be skipped or reversed");
@@ -72,7 +73,7 @@ public final class ReferenceStewardAgent {
                 phase = expected;
                 continue;
             }
-            requireObserved(phase, observations);
+            requireEvidence(phase, observations);
             if (phase != AgentPhase.VERIFY) {
                 throw violation("WORKFLOW_INCOMPLETE", "agent may complete only after verification");
             }
@@ -85,6 +86,10 @@ public final class ReferenceStewardAgent {
         return ALLOWED_TOOLS.get(Objects.requireNonNull(phase, "phase must not be null"));
     }
 
+    public static Set<String> requiredTools(AgentPhase phase) {
+        return REQUIRED_TOOLS.get(Objects.requireNonNull(phase, "phase must not be null"));
+    }
+
     private static void requireAllowed(AgentPhase phase, String toolName) {
         if (!ALLOWED_TOOLS.get(phase).contains(toolName)) {
             throw violation(
@@ -93,10 +98,18 @@ public final class ReferenceStewardAgent {
         }
     }
 
-    private static void requireObserved(AgentPhase phase, List<AgentObservation> observations) {
-        boolean observed = observations.stream().anyMatch(value -> value.phase() == phase);
-        if (!observed) {
+    private static void requireEvidence(AgentPhase phase, List<AgentObservation> observations) {
+        Set<String> observed = observations.stream()
+                .filter(value -> value.phase() == phase)
+                .map(AgentObservation::toolName)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        if (observed.isEmpty()) {
             throw violation("PHASE_EVIDENCE_MISSING", "phase cannot advance without a tool observation");
+        }
+        if (!observed.containsAll(REQUIRED_TOOLS.get(phase))) {
+            throw violation(
+                    "PHASE_REQUIRED_EVIDENCE_MISSING",
+                    "phase cannot advance before all required capabilities have been observed");
         }
     }
 
@@ -109,7 +122,10 @@ public final class ReferenceStewardAgent {
 
     private static Map<AgentPhase, Set<String>> allowedTools() {
         Map<AgentPhase, Set<String>> tools = new EnumMap<>(AgentPhase.class);
-        tools.put(AgentPhase.PROFILE, Set.of("profile_intake_artifact"));
+        tools.put(AgentPhase.PROFILE, Set.of(
+                "profile_intake_artifact",
+                "suggest_schema_mapping",
+                "preview_mapped_records"));
         tools.put(AgentPhase.IDENTIFY, Set.of(
                 "get_import_status",
                 "find_party_candidates",
@@ -121,6 +137,23 @@ public final class ReferenceStewardAgent {
         tools.put(AgentPhase.VERIFY, Set.of(
                 "get_action_plan",
                 "verify_onboarding_result"));
+        return Map.copyOf(tools);
+    }
+
+    private static Map<AgentPhase, Set<String>> requiredTools() {
+        Map<AgentPhase, Set<String>> tools = new EnumMap<>(AgentPhase.class);
+        tools.put(AgentPhase.PROFILE, Set.of(
+                "profile_intake_artifact",
+                "suggest_schema_mapping",
+                "preview_mapped_records"));
+        tools.put(AgentPhase.IDENTIFY, Set.of(
+                "get_import_status",
+                "find_party_candidates",
+                "find_site_candidates"));
+        tools.put(AgentPhase.PLAN, Set.of(
+                "create_onboarding_proposal",
+                "simulate_onboarding_plan"));
+        tools.put(AgentPhase.VERIFY, Set.of("get_action_plan"));
         return Map.copyOf(tools);
     }
 

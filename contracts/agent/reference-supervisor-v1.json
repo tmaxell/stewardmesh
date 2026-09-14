@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:stewardmesh:agent:reference-supervisor:v1",
-  "contractVersion": "1.1.0",
+  "contractVersion": "1.2.0",
   "workflow": {
     "phases": ["PROFILE", "IDENTIFY", "PLAN", "VERIFY"],
     "transitions": [
@@ -13,7 +13,11 @@
     "requiresObservationBeforeAdvance": true
   },
   "capabilities": {
-    "PROFILE": ["profile_intake_artifact"],
+    "PROFILE": [
+      "profile_intake_artifact",
+      "suggest_schema_mapping",
+      "preview_mapped_records"
+    ],
     "IDENTIFY": [
       "get_import_status",
       "find_party_candidates",
@@ -28,6 +32,23 @@
       "get_action_plan",
       "verify_onboarding_result"
     ]
+  },
+  "requiredCapabilitiesBeforeAdvance": {
+    "PROFILE": [
+      "profile_intake_artifact",
+      "suggest_schema_mapping",
+      "preview_mapped_records"
+    ],
+    "IDENTIFY": [
+      "get_import_status",
+      "find_party_candidates",
+      "find_site_candidates"
+    ],
+    "PLAN": [
+      "create_onboarding_proposal",
+      "simulate_onboarding_plan"
+    ],
+    "VERIFY": ["get_action_plan"]
   },
   "prohibitedCapabilities": [
     "approve_action_plan",
