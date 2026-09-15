@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 import io.stewardmesh.masterdata.application.goldenrecord.GoldenRecordView;
+import io.stewardmesh.masterdata.application.goldenrecord.SourceMasterLink;
+import io.stewardmesh.masterdata.application.goldenrecord.SourceMasterLinkReadException;
 import io.stewardmesh.masterdata.application.identity.IdentityResolutionCandidatePage;
 import io.stewardmesh.masterdata.application.identity.IdentityResolutionCandidateQuery;
 import io.stewardmesh.masterdata.application.identity.IdentityResolutionKey;
@@ -16,6 +18,7 @@ import io.stewardmesh.masterdata.application.identity.MatchExplanationQuery;
 import io.stewardmesh.masterdata.application.port.in.GetGoldenRecord;
 import io.stewardmesh.masterdata.application.port.in.GetIdentityResolutionStatus;
 import io.stewardmesh.masterdata.application.port.in.GetMatchExplanation;
+import io.stewardmesh.masterdata.application.port.in.GetSourceMasterLink;
 import io.stewardmesh.masterdata.application.port.in.ListIdentityResolutionCandidates;
 import io.stewardmesh.masterdata.domain.goldenrecord.GoldenEntityType;
 import io.stewardmesh.masterdata.domain.goldenrecord.SurvivorshipRulesetId;
@@ -70,6 +73,30 @@ class IdentityResolutionControllerTest {
     @BeforeEach
     void reset() {
         stubs.missing = false;
+        stubs.ambiguous = false;
+    }
+
+    @Test
+    void resolvesActiveMasterLinkWithoutSupplierValues() throws Exception {
+        mockMvc.perform(get(BASE + "/master-link"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(BASE + "/master-link").with(wrongScope()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get(BASE + "/master-link").with(readScope()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source.sourceRecordId").value("source-1"))
+                .andExpect(jsonPath("$.siteId").value(CANDIDATE.toString()))
+                .andExpect(jsonPath("$.partyId").value(CANDIDATE.toString()))
+                .andExpect(jsonPath("$.canonicalValues").doesNotExist());
+        stubs.missing = true;
+        mockMvc.perform(get(BASE + "/master-link").with(readScope()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SOURCE_MASTER_LINK_NOT_FOUND"));
+        stubs.missing = false;
+        stubs.ambiguous = true;
+        mockMvc.perform(get(BASE + "/master-link").with(readScope()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SOURCE_MASTER_LINK_AMBIGUOUS"));
     }
 
     @Test
@@ -182,6 +209,9 @@ class IdentityResolutionControllerTest {
         GetGoldenRecord goldenRecord(ReadStubs stubs) { return query -> stubs.golden(); }
 
         @Bean
+        GetSourceMasterLink sourceMasterLink(ReadStubs stubs) { return stubs::masterLink; }
+
+        @Bean
         JwtDecoder jwtDecoder() {
             return token -> { throw new IllegalArgumentException("synthetic decoder rejects raw tokens"); };
         }
@@ -189,6 +219,14 @@ class IdentityResolutionControllerTest {
 
     static final class ReadStubs {
         private boolean missing;
+        private boolean ambiguous;
+
+        SourceMasterLink masterLink(SourceRecordIdentity source) {
+            if (missing || ambiguous) {
+                throw new SourceMasterLinkReadException(ambiguous);
+            }
+            return new SourceMasterLink(source, CANDIDATE, CANDIDATE, CANDIDATE, CANDIDATE);
+        }
 
         IdentityResolutionStatus status(IdentityResolutionKey key) {
             if (missing) { throw new IdentityResolutionNotFoundException(); }
