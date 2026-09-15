@@ -31,6 +31,23 @@ public final class ReferenceAgentDemo {
                 .findFirst()
                 .map(AgentObservation::result)
                 .orElseThrow(() -> new IllegalStateException("agent completed without a proposal"));
+        Map<String, Object> simulation = result.observations().stream()
+                .filter(observation -> observation.toolName().equals("simulate_onboarding_plan"))
+                .findFirst()
+                .map(AgentObservation::result)
+                .orElseThrow(() -> new IllegalStateException("agent completed without simulation"));
+        if (!"EXECUTABLE".equals(simulation.get("outcome"))) {
+            throw new IllegalStateException("agent proposal did not simulate as executable");
+        }
+        Map<String, Object> sealed = result.observations().stream()
+                .filter(observation -> observation.toolName().equals("get_action_plan"))
+                .findFirst()
+                .map(AgentObservation::result)
+                .orElseThrow(() -> new IllegalStateException("agent did not reload the sealed plan"));
+        if (!plan.get("planId").equals(sealed.get("planId"))
+                || !plan.get("hash").equals(sealed.get("hash"))) {
+            throw new IllegalStateException("agent verification did not match the proposal");
+        }
 
         System.out.println(new ObjectMapper().writeValueAsString(Map.of(
                 "outcome", result.outcomeCode(),
