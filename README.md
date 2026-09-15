@@ -205,6 +205,12 @@ The Phase 3 acceptance proof synchronizes a versioned synthetic business unit fr
 
 Run `./scripts/verify-phase-3.sh` for the complete repository gate. All Phase 3 fixtures, identities, reference events and supplier values are synthetic.
 
+## Phase 4 reference-agent demo
+
+Start the stack with `./scripts/run-local.sh`, then run `./scripts/demo-local.sh` in another terminal. When `GROQ_API_KEY` is present in the environment or the ignored `.env`, the executable `steward-agent` attempts Groq strict structured output to choose one typed directive at a time. The supervisor still owns the allowlist, evidence requirements and tool-call limit; Groq never receives approval or execution authority. The agent profiles the workbook, checks party/site candidates, creates and simulates an immutable proposal, and reloads the sealed plan through authenticated MCP. If the provider or an agent tool is unavailable, the script reports the failure and uses the deterministic MCP proposal path; it still verifies the sealed targets, approval boundary, idempotent execution and outbox. Separate steward and executor identities complete the governed lifecycle.
+
+The default model is `openai/gpt-oss-20b`. `GROQ_MODEL` and `GROQ_BASE_URL` are deployment settings, while the API key must remain only in the ignored `.env` or process environment. Without a key, the script uses its deterministic MCP fallback so the approval, idempotency, audit and outbox demonstration remains reproducible offline.
+
 ## Concurrency smoke
 
 `SupplierIntakeLoadSmokeIT` drives the deployed stack over real HTTP with real signed tokens, because a load check that bypasses the servlet container and the security filter chain measures something the deployment never runs. Twelve tenants import concurrently and eight identical requests race one idempotency key.

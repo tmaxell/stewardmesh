@@ -7,6 +7,7 @@ import java.net.http.HttpTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -125,7 +126,8 @@ public final class StreamableHttpMcpCapabilityClient implements McpCapabilityCli
         if (!content.isArray() || content.isEmpty() || !content.get(0).has("text")) {
             throw new McpClientException("MCP_RESULT_INVALID", "MCP tool result has no text content");
         }
-        return Map.copyOf(json.readValue(content.get(0).path("text").asString(), RESULT_TYPE));
+        return Collections.unmodifiableMap(new LinkedHashMap<>(
+                json.readValue(content.get(0).path("text").asString(), RESULT_TYPE)));
     }
 
     private HttpResponse<String> send(
