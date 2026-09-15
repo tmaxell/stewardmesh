@@ -21,6 +21,8 @@ public final class GroqStewardReasoner implements StewardReasoner {
     public static final URI DEFAULT_BASE_URI = URI.create("https://api.groq.com/openai/v1/");
     public static final String DEFAULT_MODEL = "openai/gpt-oss-20b";
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(30);
+    private static final int MAX_RATE_LIMIT_ATTEMPTS = 3;
+    private static final long MAX_RETRY_AFTER_SECONDS = 30;
     private static final TypeReference<LinkedHashMap<String, Object>> ARGUMENTS = new TypeReference<>() {};
     private static final String SYSTEM_INSTRUCTION = """
             You are the decision adapter for the StewardMesh reference supervisor. Return exactly one
@@ -32,6 +34,10 @@ public final class GroqStewardReasoner implements StewardReasoner {
             PROFILE calls profile_intake_artifact, suggest_schema_mapping, preview_mapped_records, then advances.
             For preview_mapped_records, derive mappings only from non-null targetColumn values returned by
             suggest_schema_mapping with EXACT_CANONICAL or KNOWN_ALIAS decisions.
+            Each preview mapping object must contain exactly sourcePosition (integer) and targetColumn
+            (string). Copy sourcePosition, not sourceHeader, from the corresponding suggestion. Omit
+            sourceHeader, decision, confidenceBasisPoints and all other suggestion fields. Do not use
+            targetColumn when it is null or the decision is UNMAPPED/AMBIGUOUS.
             IDENTIFY calls get_import_status, find_party_candidates, find_site_candidates, optionally
             explain_match, then advances. Source identity and ruleset are supplied by the trusted objective.
             PLAN calls create_onboarding_proposal using the exact trusted proposal specification, then calls
@@ -41,7 +47,7 @@ public final class GroqStewardReasoner implements StewardReasoner {
 
             Tool arguments:
             profile_intake_artifact(importId); suggest_schema_mapping(importId);
-            preview_mapped_records(importId,mappings);
+            preview_mapped_records(importId,mappings=[{sourcePosition:1,targetColumn:"source_record_id"},...]);
             get_import_status(importId);
             find_party_candidates(sourceSystem,sourceRecordId,sourceVersion,rulesetId);
             find_site_candidates(sourceSystem,sourceRecordId,sourceVersion,rulesetId);
@@ -94,7 +100,24 @@ public final class GroqStewardReasoner implements StewardReasoner {
         Objects.requireNonNull(context, "context must not be null");
         lastUsage = ModelTokenUsage.unavailable();
         try {
-            HttpResponse<String> response = http.send(request(context), HttpResponse.BodyHandlers.ofString());
+            HttpRequest call = request(context);
+            HttpResponse<String> response = null;
+            for (int attempt = 1; attempt <= MAX_RATE_LIMIT_ATTEMPTS; attempt++) {
+                response = http.send(call, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() != 429) {
+                    break;
+                }
+                if (attempt == MAX_RATE_LIMIT_ATTEMPTS) {
+                    throw new ModelProviderException(
+                            "MODEL_PROVIDER_RATE_LIMITED", "model provider rate limit persisted");
+                }
+                long delay = retryAfterSeconds(response, attempt);
+                if (delay > MAX_RETRY_AFTER_SECONDS) {
+                    throw new ModelProviderException(
+                            "MODEL_PROVIDER_RATE_LIMITED", "model provider requested a long retry delay");
+                }
+                Thread.sleep(delay * 1_000L);
+            }
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new ModelProviderException(
                         "MODEL_PROVIDER_REJECTED", "model provider returned HTTP " + response.statusCode());
@@ -108,6 +131,18 @@ public final class GroqStewardReasoner implements StewardReasoner {
         } catch (IOException exception) {
             throw new ModelProviderException("MODEL_PROVIDER_TRANSPORT_FAILED", "model transport failed", exception);
         }
+    }
+
+    private static long retryAfterSeconds(HttpResponse<?> response, int attempt) {
+        return response.headers().firstValue("retry-after")
+                .map(value -> {
+                    try {
+                        return Long.parseLong(value.strip());
+                    } catch (NumberFormatException exception) {
+                        return 1L << attempt;
+                    }
+                })
+                .orElse(1L << attempt);
     }
 
     @Override
@@ -172,10 +207,10 @@ public final class GroqStewardReasoner implements StewardReasoner {
             case "CALL_TOOL" -> new AgentDirective.CallTool(
                     requiredNodeText(value, "toolName"),
                     arguments(requiredNodeText(value, "argumentsJson")),
-                    requiredNodeText(value, "decisionCode"));
+                    optionalDecisionCode(value, "MODEL_TOOL_REQUESTED"));
             case "ADVANCE" -> new AgentDirective.Advance(
                     AgentPhase.valueOf(requiredNodeText(value, "nextPhase")),
-                    requiredNodeText(value, "decisionCode"));
+                    optionalDecisionCode(value, "MODEL_PHASE_ADVANCED"));
             case "COMPLETE" -> new AgentDirective.Complete(requiredNodeText(value, "outcomeCode"));
             default -> throw new ModelProviderException("MODEL_RESPONSE_INVALID", "model directive kind was invalid");
         };
@@ -195,6 +230,11 @@ public final class GroqStewardReasoner implements StewardReasoner {
             throw new ModelProviderException("MODEL_RESPONSE_INVALID", "model directive omitted " + field);
         }
         return value;
+    }
+
+    private static String optionalDecisionCode(JsonNode node, String fallback) {
+        String value = node.path("decisionCode").asString();
+        return value.isBlank() ? fallback : value;
     }
 
     private static Map<String, Object> responseFormat() {

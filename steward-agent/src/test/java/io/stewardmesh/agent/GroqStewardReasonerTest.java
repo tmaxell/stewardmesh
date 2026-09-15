@@ -29,6 +29,7 @@ class GroqStewardReasonerTest {
     private final AtomicReference<String> requestBody = new AtomicReference<>();
     private final AtomicReference<String> authorization = new AtomicReference<>();
     private volatile int status = 200;
+    private volatile int rateLimitedResponses;
     private volatile String response;
 
     @BeforeEach
@@ -62,6 +63,7 @@ class GroqStewardReasonerTest {
         assertFalse(requestBody.get().contains("test-secret"));
         assertTrue(requestBody.get().contains("json_schema"));
         assertTrue(requestBody.get().contains("UNTRUSTED_TOOL_EVIDENCE"));
+        assertTrue(requestBody.get().contains("Copy sourcePosition, not sourceHeader"));
     }
 
     @Test
@@ -72,8 +74,24 @@ class GroqStewardReasonerTest {
         ModelProviderException exception = assertThrows(
                 ModelProviderException.class, () -> reasoner().next(context()));
 
-        assertEquals("MODEL_PROVIDER_REJECTED", exception.code());
+        assertEquals("MODEL_PROVIDER_RATE_LIMITED", exception.code());
         assertFalse(exception.getMessage().contains("sensitive"));
+    }
+
+    @Test
+    void retriesBoundedRateLimitWithoutExposingProviderBody() {
+        rateLimitedResponses = 1;
+        response = completion("""
+                {"kind":"CALL_TOOL","toolName":"get_import_status",\
+                "argumentsJson":"{\\\"importId\\\":\\\"018f3f70-79b2-7d6a-bf40-3d52dc2bb10a\\\"}",\
+                "nextPhase":null,"decisionCode":"IMPORT_STATUS_CHECKED","outcomeCode":null}
+                """);
+
+        AgentDirective.CallTool directive = assertInstanceOf(
+                AgentDirective.CallTool.class, reasoner().next(context()));
+
+        assertEquals("get_import_status", directive.toolName());
+        assertEquals(0, rateLimitedResponses);
     }
 
     @Test
@@ -84,6 +102,20 @@ class GroqStewardReasonerTest {
                 ModelProviderException.class, () -> reasoner().next(context()));
 
         assertEquals("MODEL_RESPONSE_INVALID", exception.code());
+    }
+
+    @Test
+    void usesStableDecisionCodeWhenOptionalModelFieldIsNull() {
+        response = completion("""
+                {"kind":"CALL_TOOL","toolName":"get_import_status",\
+                "argumentsJson":"{\\\"importId\\\":\\\"018f3f70-79b2-7d6a-bf40-3d52dc2bb10a\\\"}",\
+                "nextPhase":null,"decisionCode":null,"outcomeCode":null}
+                """);
+
+        AgentDirective.CallTool directive = assertInstanceOf(
+                AgentDirective.CallTool.class, reasoner().next(context()));
+
+        assertEquals("MODEL_TOOL_REQUESTED", directive.decisionCode());
     }
 
     private GroqStewardReasoner reasoner() {
@@ -125,8 +157,14 @@ class GroqStewardReasonerTest {
     private void respond(HttpExchange exchange) throws IOException {
         authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
         requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-        byte[] body = response.getBytes(StandardCharsets.UTF_8);
-        exchange.sendResponseHeaders(status, body.length);
+        boolean limited = rateLimitedResponses > 0;
+        if (limited) {
+            rateLimitedResponses--;
+            exchange.getResponseHeaders().set("retry-after", "0");
+        }
+        byte[] body = (limited ? "sensitive rate-limit detail" : response)
+                .getBytes(StandardCharsets.UTF_8);
+        exchange.sendResponseHeaders(limited ? 429 : status, body.length);
         exchange.getResponseBody().write(body);
         exchange.close();
     }
