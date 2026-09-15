@@ -4,6 +4,7 @@ import io.stewardmesh.masterdata.application.intake.IdempotencyConflictException
 import io.stewardmesh.masterdata.application.intake.IntakeArtifactAccessException;
 import io.stewardmesh.masterdata.application.intake.SupplierImportNotFoundException;
 import io.stewardmesh.masterdata.application.goldenrecord.GoldenRecordNotFoundException;
+import io.stewardmesh.masterdata.application.goldenrecord.SourceMasterLinkReadException;
 import io.stewardmesh.masterdata.application.identity.IdentityResolutionNotFoundException;
 import io.stewardmesh.masterdata.application.identity.MatchCandidateNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -102,6 +103,16 @@ public class IntakeApiExceptionHandler {
                 "GOLDEN_RECORD_NOT_FOUND",
                 "golden record was not found",
                 request);
+    }
+
+    @ExceptionHandler(SourceMasterLinkReadException.class)
+    ProblemDetail sourceMasterLink(
+            SourceMasterLinkReadException exception, HttpServletRequest request) {
+        return exception.ambiguous()
+                ? problem(HttpStatus.CONFLICT, "SOURCE_MASTER_LINK_AMBIGUOUS",
+                        "source has multiple active master links", request)
+                : problem(HttpStatus.NOT_FOUND, "SOURCE_MASTER_LINK_NOT_FOUND",
+                        "source has no active master link", request);
     }
 
     @ExceptionHandler(IntakeArtifactAccessException.class)

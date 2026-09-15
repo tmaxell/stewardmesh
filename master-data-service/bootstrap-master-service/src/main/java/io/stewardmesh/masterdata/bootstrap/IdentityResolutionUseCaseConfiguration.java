@@ -9,12 +9,14 @@ import io.stewardmesh.masterdata.application.identity.IdentityResolutionCandidat
 import io.stewardmesh.masterdata.application.identity.IdentityResolutionStatusService;
 import io.stewardmesh.masterdata.application.identity.MatchExplanationService;
 import io.stewardmesh.masterdata.application.goldenrecord.GoldenRecordReadService;
+import io.stewardmesh.masterdata.application.goldenrecord.SourceMasterLinkReadService;
 import io.stewardmesh.masterdata.application.goldenrecord.ProjectSourceRecordService;
 import io.stewardmesh.masterdata.application.port.in.GenerateMatchCandidates;
 import io.stewardmesh.masterdata.application.port.in.RouteSupplierImportMatches;
 import io.stewardmesh.masterdata.application.port.in.ScoreMatchCandidates;
 import io.stewardmesh.masterdata.application.port.in.ProjectSourceRecord;
 import io.stewardmesh.masterdata.application.port.in.GetGoldenRecord;
+import io.stewardmesh.masterdata.application.port.in.GetSourceMasterLink;
 import io.stewardmesh.masterdata.application.port.in.GetIdentityResolutionStatus;
 import io.stewardmesh.masterdata.application.port.in.GetMatchExplanation;
 import io.stewardmesh.masterdata.application.port.in.ListIdentityResolutionCandidates;
@@ -30,6 +32,7 @@ import io.stewardmesh.masterdata.application.port.out.StoreMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordProjection;
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordState;
+import io.stewardmesh.masterdata.application.port.out.LoadSourceMasterLinks;
 import io.stewardmesh.masterdata.application.port.out.StoreGoldenRecordProjection;
 import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
 import io.stewardmesh.masterdata.domain.goldenrecord.GoldenRecordProjector;
@@ -60,6 +63,11 @@ class IdentityResolutionUseCaseConfiguration {
     @Bean
     GetGoldenRecord getGoldenRecord(LoadGoldenRecordProjection projections) {
         return new GoldenRecordReadService(projections);
+    }
+
+    @Bean
+    GetSourceMasterLink getSourceMasterLink(LoadSourceMasterLinks links) {
+        return new SourceMasterLinkReadService(links);
     }
 
     @Bean

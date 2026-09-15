@@ -40,13 +40,14 @@ class PublishedOpenApiContractTest {
     }
 
     @Test
-    void publishesOnlyFourBoundedIdentityResolutionReads() throws IOException {
+    void publishesOnlyFiveBoundedIdentityResolutionReads() throws IOException {
         Map<?, ?> root = map(document("identity-resolution-v1.yaml"));
         assertEquals("3.1.0", root.get("openapi"));
         Map<?, ?> paths = map(root.get("paths"));
         assertEquals(Set.of(
                 "/api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}",
                 "/api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/candidates",
+                "/api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/master-link",
                 "/api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/candidates/{candidateId}/explanation",
                 "/api/v1/golden-records/{entityType}/{entityId}"), paths.keySet());
         paths.forEach((path, operation) -> {

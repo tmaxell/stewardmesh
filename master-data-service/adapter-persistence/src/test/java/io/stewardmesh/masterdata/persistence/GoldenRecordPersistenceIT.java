@@ -10,6 +10,7 @@ import io.stewardmesh.masterdata.application.identity.MatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.ImportJobRepository;
 import io.stewardmesh.masterdata.application.port.out.IntakeArtifactRepository;
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordProjection;
+import io.stewardmesh.masterdata.application.port.out.LoadSourceMasterLinks;
 import io.stewardmesh.masterdata.application.port.out.LoadMatchEvaluation;
 import io.stewardmesh.masterdata.application.port.out.SourceRecordWriter;
 import io.stewardmesh.masterdata.application.port.out.StoreGoldenRecordProjection;
@@ -85,6 +86,9 @@ class GoldenRecordPersistenceIT extends PostgreSqlIntegrationTestSupport {
     private LoadGoldenRecordProjection goldenRecordLoader;
 
     @Autowired
+    private LoadSourceMasterLinks sourceMasterLinks;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @DynamicPropertySource
@@ -117,6 +121,11 @@ class GoldenRecordPersistenceIT extends PostgreSqlIntegrationTestSupport {
         assertEquals(fixture.source().identity(), legalName.provenance().sourceRecord());
         assertEquals(fixture.association().id(), legalName.provenance().associationId());
         assertEquals(GoldenRecordProjector.RULESET_ID, legalName.provenance().rulesetId());
+        var active = sourceMasterLinks.findActive(fixture.source().identity());
+        assertEquals(1, active.size());
+        assertEquals(fixture.association().id().value(), active.getFirst().associationId());
+        assertEquals(fixture.partyId().value(), active.getFirst().partyId());
+        assertEquals(fixture.siteId().value(), active.getFirst().siteId());
     }
 
     @Test

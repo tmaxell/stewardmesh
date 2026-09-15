@@ -51,6 +51,30 @@ paths:
         '401': {$ref: '#/components/responses/Unauthorized'}
         '403': {$ref: '#/components/responses/Forbidden'}
         '404': {$ref: '#/components/responses/NotFound'}
+  /api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/master-link:
+    get:
+      operationId: getSourceMasterLink
+      security:
+        - bearerAuth: [identity-resolution.read]
+      parameters:
+        - $ref: '#/components/parameters/OriginSystem'
+        - $ref: '#/components/parameters/SourceRecordId'
+        - $ref: '#/components/parameters/SourceVersion'
+      responses:
+        '200':
+          description: Unique active source-to-master targets; no source values.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SourceMasterLink'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: Multiple active targets require steward review.
+          content:
+            application/problem+json:
+              schema: {$ref: '#/components/schemas/Problem'}
   /api/v1/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/candidates/{candidateId}/explanation:
     get:
       operationId: getMatchExplanation
@@ -158,6 +182,15 @@ components:
         originSystem: {type: string}
         sourceRecordId: {type: string}
         sourceVersion: {type: integer, format: int64, minimum: 1}
+    SourceMasterLink:
+      type: object
+      required: [source, associationId, partyId, addressId, siteId]
+      properties:
+        source: {$ref: '#/components/schemas/SourceIdentity'}
+        associationId: {type: string, format: uuid}
+        partyId: {type: string, format: uuid}
+        addressId: {type: [string, 'null'], format: uuid}
+        siteId: {type: [string, 'null'], format: uuid}
     IdentityResolutionStatus:
       type: object
       required: [source, rulesetId, evaluatedAt, partyCandidates, siteCandidates, autoLinks, reviews, noMatches, hardConflict]

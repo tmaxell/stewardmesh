@@ -22,6 +22,7 @@ import io.stewardmesh.masterdata.application.port.out.StoreStewardshipCase;
 import io.stewardmesh.masterdata.application.port.out.StoreGoldenRecordProjection;
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordProjection;
 import io.stewardmesh.masterdata.application.port.out.LoadGoldenRecordState;
+import io.stewardmesh.masterdata.application.port.out.LoadSourceMasterLinks;
 import io.stewardmesh.masterdata.application.port.out.ValidationIssueReader;
 import io.stewardmesh.masterdata.application.port.out.BusinessUnitRepository;
 import io.stewardmesh.masterdata.application.port.out.SiteAssignmentRepository;
@@ -43,6 +44,7 @@ import io.stewardmesh.masterdata.persistence.jdbc.JdbcStewardshipCaseStore;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordProjectionStore;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordProjectionLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcGoldenRecordStateLoader;
+import io.stewardmesh.masterdata.persistence.jdbc.JdbcSourceMasterLinkLoader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcValidationIssueReader;
 import io.stewardmesh.masterdata.persistence.jdbc.JdbcSiteAssignmentRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -135,6 +137,12 @@ public class IntakePersistenceConfiguration {
     LoadGoldenRecordState goldenRecordStateLoader(
             JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
         return new JdbcGoldenRecordStateLoader(jdbcTemplate, objectMapper);
+    }
+
+    @Bean
+    LoadSourceMasterLinks sourceMasterLinks(
+            JdbcTemplate jdbcTemplate) {
+        return new JdbcSourceMasterLinkLoader(jdbcTemplate);
     }
 
     @Bean
