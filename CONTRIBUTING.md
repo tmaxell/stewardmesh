@@ -77,13 +77,18 @@ Commit each significant completed logical block after running its relevant verif
 
 The repository records the people accountable for a change and nothing else. Authoring tools, assistants and their vendors are implementation details of a contributor's workstation and must never appear in the published history.
 
-Never add, in commit subjects, commit bodies, commit trailers, branch names, pull request titles or descriptions, review comments, code comments, documentation or any tracked file:
+Never add, in commit subjects, commit bodies, commit trailers, branch names, pull request titles or descriptions, review comments, code comments, documentation or any tracked file, as authorship or tooling attribution:
 
 - the name of an AI assistant, model or its vendor, in any spelling or casing;
 - generated-by, co-authored-by, assisted-by or similar attribution to a tool;
 - advertising footers, badges or links added automatically by a tool;
 - email addresses that do not belong to the actual author, including tool-vendor `noreply` addresses, placeholder addresses and addresses invented for a trailer; a contributor's own GitHub-provided `users.noreply.github.com` address is their real address and remains allowed;
 - accounts, handles or bot identities that are not real repository contributors.
+
+Identifiers required for a functional external integration (for example, a provider API URI or
+model ID in deploy-time configuration) are interface data, not contributor attribution. Keep them
+confined to the integration code/configuration and operator documentation; never use them as an
+authorship claim, generated-by footer, or promotional badge.
 
 Rules:
 
