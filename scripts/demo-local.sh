@@ -57,8 +57,11 @@ session, _ = post({
     "params": {"protocolVersion": protocol, "capabilities": {},
                "clientInfo": {"name": "stewardmesh-demo", "version": "1.0"}}})
 post({"jsonrpc": "2.0", "method": "notifications/initialized"}, session)
+arguments = ({"request": request} if tool in {
+    "create_onboarding_proposal", "simulate_onboarding_plan", "approve_action_plan",
+    "reject_action_plan", "execute_approved_plan"} else request)
 _, raw = post({"jsonrpc": "2.0", "id": 2, "method": "tools/call",
-               "params": {"name": tool, "arguments": {"request": request}}}, session)
+               "params": {"name": tool, "arguments": arguments}}, session)
 
 payload = raw.strip()
 if not payload.startswith("{"):
@@ -139,7 +142,7 @@ UPLOAD="$(curl --fail-with-body --silent --show-error \
 IMPORT_ID="$(printf '%s' "${UPLOAD}" | field "['importId']")"
 detail "import ${IMPORT_ID} reached $(printf '%s' "${UPLOAD}" | field "['status']")"
 
-step "4. The agent reads its way to the mastered site"
+step "4. The demo discovers the mastered site through the public API"
 SITE="$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer ${IMPORTER}" \
   "${SERVICE}/api/v1/identity-resolution/sources/DEMO_${RUN}/SYN-0002/versions/1/candidates?rulesetId=supplier-identity-v1&entityType=SITE" \
   | field "['candidates'][0]['candidateId']")"
@@ -147,7 +150,6 @@ SITE_VERSION="$(curl --fail-with-body --silent --show-error -H "Authorization: B
   "${SERVICE}/api/v1/golden-records/SITE/${SITE}" | field "['version']")"
 detail "site ${SITE} is at golden version ${SITE_VERSION}"
 
-step "5. The agent proposes a governed change and cannot do more than propose"
 ASSIGNMENT="$(python3 -c 'import uuid;print(uuid.uuid4())')"
 python3 - "${IMPORT_ID}" "${ASSIGNMENT}" "${SITE}" "${SITE_VERSION}" "${BUSINESS_UNIT}" \
   "${BUSINESS_UNIT_CODE}" > "${WORKDIR}/proposal.json" <<'PYTHON'
@@ -161,11 +163,57 @@ print(json.dumps({"importId": import_id, "steps": [{
     "validFrom": "2026-01-01", "reasonCode": "AUTHORIZE_CLIENT_BU",
     "evidence": [{"type": "BUSINESS_UNIT_REFERENCE", "reference": sys.argv[6], "version": 1}]}]}))
 PYTHON
-PROPOSAL="$(mcp "${AGENT}" create_onboarding_proposal < "${WORKDIR}/proposal.json")"
-PLAN="$(printf '%s' "${PROPOSAL}" | field "['planId']")"
-HASH="$(printf '%s' "${PROPOSAL}" | field "['hash']")"
-detail "plan ${PLAN} sealed at risk $(printf '%s' "${PROPOSAL}" | field "['risk']")"
-printf '{"planId":"%s","expectedVersion":1,"expectedHash":"%s"}' "${PLAN}" "${HASH}" \
+if [[ -n "${GROQ_API_KEY:-}" ]]; then
+  step "5. The Groq-backed reference supervisor investigates and proposes"
+  OBJECTIVE="Inspect source DEMO_${RUN}/SYN-0002/v1 with ruleset supplier-identity-v1. Propose ASSIGN_SUPPLIER_SITE assignmentId=${ASSIGNMENT} siteId=${SITE} expectedSiteVersion=${SITE_VERSION} clientBusinessUnitId=${BUSINESS_UNIT} purposes=PURCHASING validFrom=2026-01-01 reasonCode=AUTHORIZE_CLIENT_BU evidence=BUSINESS_UNIT_REFERENCE:${BUSINESS_UNIT_CODE}:v1."
+  docker run --rm \
+    -v "${REPOSITORY_ROOT}:/workspace" -v stewardmesh-m2:/root/.m2 -w /workspace \
+    maven:3.9.16-eclipse-temurin-25 \
+    mvn --batch-mode --no-transfer-progress -pl steward-agent -am package -DskipTests >/dev/null
+  export STEWARDMESH_AGENT_TOKEN="${AGENT}"
+  export STEWARDMESH_IMPORT_ID="${IMPORT_ID}"
+  export STEWARDMESH_AGENT_OBJECTIVE="${OBJECTIVE}"
+  AGENT_RESULT="$(docker run --rm --network stewardmesh_default \
+    -e GROQ_API_KEY \
+    -e "GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-20b}" \
+    -e "GROQ_BASE_URL=${GROQ_BASE_URL:-https://api.groq.com/openai/v1/}" \
+    -e STEWARDMESH_AGENT_TOKEN \
+    -e STEWARDMESH_IMPORT_ID \
+    -e STEWARDMESH_AGENT_OBJECTIVE \
+    -e STEWARDMESH_MCP_URL=http://stewardmesh-master-service:8080/mcp \
+    -v "${REPOSITORY_ROOT}:/workspace:ro" -w /workspace \
+    maven:3.9.16-eclipse-temurin-25 \
+    java -jar steward-agent/target/steward-agent-0.1.0-SNAPSHOT.jar)"
+  PLAN="$(printf '%s' "${AGENT_RESULT}" | field "['planId']")"
+  PLAN_VERSION="$(printf '%s' "${AGENT_RESULT}" | field "['planVersion']")"
+  HASH="$(printf '%s' "${AGENT_RESULT}" | field "['planHash']")"
+  detail "reference supervisor used $(printf '%s' "${AGENT_RESULT}" | field "['model']")"
+  detail "tool calls $(printf '%s' "${AGENT_RESULT}" | field "['toolCalls']")"
+else
+  step "5. Deterministic MCP fallback proposes the governed change"
+  detail "GROQ_API_KEY is not set; exporting it enables the real reference-supervisor path"
+  PROPOSAL="$(mcp "${AGENT}" create_onboarding_proposal < "${WORKDIR}/proposal.json")"
+  PLAN="$(printf '%s' "${PROPOSAL}" | field "['planId']")"
+  PLAN_VERSION="$(printf '%s' "${PROPOSAL}" | field "['version']")"
+  HASH="$(printf '%s' "${PROPOSAL}" | field "['hash']")"
+fi
+detail "plan ${PLAN} sealed at version ${PLAN_VERSION}"
+printf '{"planId":"%s"}' "${PLAN}" > "${WORKDIR}/plan-read.json"
+PLAN_READ="$(mcp "${AGENT}" get_action_plan < "${WORKDIR}/plan-read.json")"
+printf '%s' "${PLAN_READ}" | python3 -c '
+import json, sys
+plan = json.load(sys.stdin)
+assignment, site, business_unit, version, digest = sys.argv[1:]
+steps = plan["steps"]
+assert plan["status"] == "PROPOSED" and str(plan["version"]) == version and plan["hash"] == digest
+assert len(steps) == 1 and steps[0]["type"] == "ASSIGN_SUPPLIER_SITE"
+targets = steps[0]["targets"]
+assert targets["assignmentId"] == assignment
+assert targets["siteId"] == site
+assert targets["clientBusinessUnitId"] == business_unit
+' "${ASSIGNMENT}" "${SITE}" "${BUSINESS_UNIT}" "${PLAN_VERSION}" "${HASH}"
+detail "the sealed step exactly matches the synthetic site and business unit"
+printf '{"planId":"%s","expectedVersion":%s,"expectedHash":"%s"}' "${PLAN}" "${PLAN_VERSION}" "${HASH}" \
   > "${WORKDIR}/bound.json"
 
 python3 -c "

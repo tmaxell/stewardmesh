@@ -14,4 +14,6 @@ Production callers wrap that transport in `SafeRetryingMcpCapabilityClient`. Tim
 
 `AgentRuntimeTelemetry` exposes best-effort model latency and optional token usage, logical tool-call latency, retry decisions and run outcomes. Its API accepts only bounded phase/tool/outcome codes and aggregate measurements—not goals, identifiers, arguments, results, credentials or supplier values. A telemetry failure cannot change workflow, retry or mutation behavior.
 
-The first vertical slice deliberately leaves model selection outside the workflow core: a local or hosted model implements `StewardReasoner` without changing phase policy or MCP transport. Multiple autonomous agents are a later optimization and require eval evidence.
+`GroqStewardReasoner` is the first runnable provider adapter. It uses Groq's OpenAI-compatible Chat Completions endpoint with strict JSON-schema output and converts each response into one typed directive; prompts, evidence and provider response bodies are never logged. The default model is `openai/gpt-oss-20b`, while `GROQ_MODEL` and `GROQ_BASE_URL` remain deploy-time choices. `ReferenceAgentDemo` packages the module as an executable jar and requires `GROQ_API_KEY`, `STEWARDMESH_AGENT_TOKEN`, `STEWARDMESH_IMPORT_ID` and a bounded `STEWARDMESH_AGENT_OBJECTIVE` from the environment.
+
+The workflow core remains model-independent: another local or hosted model can implement `StewardReasoner` without changing phase policy or MCP transport. Multiple autonomous agents are a later optimization and require eval evidence.
