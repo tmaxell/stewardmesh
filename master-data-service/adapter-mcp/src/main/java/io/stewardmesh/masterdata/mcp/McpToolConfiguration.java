@@ -3,6 +3,9 @@ package io.stewardmesh.masterdata.mcp;
 import io.stewardmesh.masterdata.application.port.in.DecideActionPlan;
 import io.stewardmesh.masterdata.application.port.in.ExecuteActionPlan;
 import io.stewardmesh.masterdata.application.port.in.GetActionPlan;
+import io.stewardmesh.masterdata.application.port.in.GetMatchExplanation;
+import io.stewardmesh.masterdata.application.port.in.GetSupplierImportStatus;
+import io.stewardmesh.masterdata.application.port.in.ListIdentityResolutionCandidates;
 import io.stewardmesh.masterdata.application.port.in.ProposeActionPlan;
 import io.stewardmesh.masterdata.application.port.in.ProfileIntakeArtifact;
 import io.stewardmesh.masterdata.application.port.in.PreviewMappedRecords;
@@ -41,11 +44,21 @@ public class McpToolConfiguration {
     }
 
     @Bean
+    IdentityResolutionMcpTools identityResolutionMcpTools(
+            GetSupplierImportStatus getSupplierImportStatus,
+            ListIdentityResolutionCandidates listIdentityResolutionCandidates,
+            GetMatchExplanation getMatchExplanation) {
+        return new IdentityResolutionMcpTools(
+                getSupplierImportStatus, listIdentityResolutionCandidates, getMatchExplanation);
+    }
+
+    @Bean
     ToolCallbackProvider masterDataToolCallbacks(
             GovernedActionPlanMcpTools governedTools,
-            IntakeProfilingMcpTools profilingTools) {
+            IntakeProfilingMcpTools profilingTools,
+            IdentityResolutionMcpTools identityTools) {
         return MethodToolCallbackProvider.builder()
-                .toolObjects(governedTools, profilingTools)
+                .toolObjects(governedTools, profilingTools, identityTools)
                 .build();
     }
 }
