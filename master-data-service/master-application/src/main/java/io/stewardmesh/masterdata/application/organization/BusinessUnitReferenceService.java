@@ -5,6 +5,7 @@ import io.stewardmesh.masterdata.application.port.out.ApplicationTransaction;
 import io.stewardmesh.masterdata.application.port.out.BusinessUnitRepository;
 import io.stewardmesh.masterdata.domain.organization.BusinessUnit;
 import java.util.Objects;
+import java.util.Optional;
 
 /** Applies monotonic internal-reference updates without mastering the organization hierarchy. */
 public final class BusinessUnitReferenceService implements SynchronizeBusinessUnit {
@@ -21,21 +22,26 @@ public final class BusinessUnitReferenceService implements SynchronizeBusinessUn
     @Override
     public BusinessUnit execute(BusinessUnit incoming) {
         Objects.requireNonNull(incoming, "incoming must not be null");
-        return transaction.execute(() -> synchronize(incoming));
+        // Rejections are decided before the write starts, deliberately outside the transaction
+        // template. A nested template that fails marks the caller's transaction rollback-only, and
+        // an inbox consumer would then be unable to commit the quarantine record describing the
+        // rejection: the event would be neither applied nor recorded, only redelivered forever.
+        Optional<BusinessUnit> unchanged = reject(incoming);
+        return unchanged.orElseGet(() -> transaction.execute(() -> businessUnits.save(incoming)));
     }
 
-    private BusinessUnit synchronize(BusinessUnit incoming) {
+    /** Returns the stored unit when the event is an exact repeat, or throws when it conflicts. */
+    private Optional<BusinessUnit> reject(BusinessUnit incoming) {
         businessUnits.findByCode(incoming.code()).ifPresent(byCode -> {
             if (!byCode.id().equals(incoming.id())) {
                 throw new BusinessUnitConflictException("business unit code belongs to another identity");
             }
         });
-        return businessUnits.findById(incoming.id())
-                .map(current -> update(current, incoming))
-                .orElseGet(() -> businessUnits.save(incoming));
-    }
-
-    private BusinessUnit update(BusinessUnit current, BusinessUnit incoming) {
+        Optional<BusinessUnit> stored = businessUnits.findById(incoming.id());
+        if (stored.isEmpty()) {
+            return Optional.empty();
+        }
+        BusinessUnit current = stored.orElseThrow();
         if (!current.code().equals(incoming.code())) {
             throw new BusinessUnitConflictException("business unit code is immutable");
         }
@@ -46,8 +52,8 @@ public final class BusinessUnitReferenceService implements SynchronizeBusinessUn
             if (!incoming.equals(current)) {
                 throw new BusinessUnitConflictException("business unit version has conflicting content");
             }
-            return current;
+            return Optional.of(current);
         }
-        return businessUnits.save(incoming);
+        return Optional.empty();
     }
 }

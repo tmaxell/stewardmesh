@@ -25,7 +25,7 @@ class PublishedSupervisorContractTest {
             contract = json.readTree(input);
         }
 
-        assertEquals("1.3.0", contract.path("contractVersion").asString());
+        assertEquals("1.4.0", contract.path("contractVersion").asString());
         assertEquals(
                 Arrays.stream(AgentPhase.values()).map(Enum::name).toList(),
                 contract.path("workflow").path("phases").valueStream()

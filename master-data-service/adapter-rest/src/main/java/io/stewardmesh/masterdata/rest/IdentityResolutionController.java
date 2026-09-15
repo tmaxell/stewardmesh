@@ -9,6 +9,7 @@ import io.stewardmesh.masterdata.application.identity.MatchExplanationQuery;
 import io.stewardmesh.masterdata.application.port.in.GetGoldenRecord;
 import io.stewardmesh.masterdata.application.port.in.GetIdentityResolutionStatus;
 import io.stewardmesh.masterdata.application.port.in.GetMatchExplanation;
+import io.stewardmesh.masterdata.application.port.in.GetSourceMasterLink;
 import io.stewardmesh.masterdata.application.port.in.ListIdentityResolutionCandidates;
 import io.stewardmesh.masterdata.domain.goldenrecord.GoldenEntityType;
 import io.stewardmesh.masterdata.domain.identity.MatchEntityType;
@@ -33,16 +34,34 @@ public class IdentityResolutionController {
     private final ListIdentityResolutionCandidates candidates;
     private final GetMatchExplanation explanations;
     private final GetGoldenRecord goldenRecords;
+    private final GetSourceMasterLink masterLinks;
 
     public IdentityResolutionController(
             GetIdentityResolutionStatus statuses,
             ListIdentityResolutionCandidates candidates,
             GetMatchExplanation explanations,
-            GetGoldenRecord goldenRecords) {
+            GetGoldenRecord goldenRecords,
+            GetSourceMasterLink masterLinks) {
         this.statuses = statuses;
         this.candidates = candidates;
         this.explanations = explanations;
         this.goldenRecords = goldenRecords;
+        this.masterLinks = masterLinks;
+    }
+
+    @GetMapping("/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}/master-link")
+    @Operation(summary = "Read the unique active master targets for one source assertion")
+    public SourceMasterLinkResponse masterLink(
+            @PathVariable String originSystem,
+            @PathVariable String sourceRecordId,
+            @PathVariable String sourceVersion) {
+        try {
+            return SourceMasterLinkResponse.from(masterLinks.execute(new SourceRecordIdentity(
+                    new SourceSystemRef(originSystem), sourceRecordId,
+                    Long.parseLong(sourceVersion))));
+        } catch (IllegalArgumentException exception) {
+            throw request("SOURCE_IDENTITY_INVALID", "source identity is invalid");
+        }
     }
 
     @GetMapping("/identity-resolution/sources/{originSystem}/{sourceRecordId}/versions/{sourceVersion}")

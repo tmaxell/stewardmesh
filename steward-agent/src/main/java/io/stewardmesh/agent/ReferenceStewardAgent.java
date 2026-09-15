@@ -176,6 +176,9 @@ public final class ReferenceStewardAgent {
         if (failure instanceof AgentPolicyViolationException policy) {
             return policy.code();
         }
+        if (failure instanceof ModelProviderException provider) {
+            return provider.code();
+        }
         return "AGENT_RUNTIME_FAILED";
     }
 
@@ -240,8 +243,7 @@ public final class ReferenceStewardAgent {
                 "create_onboarding_proposal",
                 "simulate_onboarding_plan"));
         tools.put(AgentPhase.VERIFY, Set.of(
-                "get_action_plan",
-                "verify_onboarding_result"));
+                "get_action_plan"));
         return Map.copyOf(tools);
     }
 

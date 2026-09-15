@@ -36,6 +36,44 @@ class BusinessUnitReferenceServiceTest {
     }
 
     @Test
+    void decidesEveryRejectionBeforeOpeningTheWriteTransaction() {
+        // The inbox consumer records a rejection in its own transaction. If a rejection were raised
+        // from inside a nested transaction template, that template would mark the consumer's
+        // transaction rollback-only and the quarantine record could never commit, so the event
+        // would be neither applied nor recorded.
+        var repository = new InMemoryBusinessUnits();
+        var transaction = new CountingTransaction();
+        var service = new BusinessUnitReferenceService(repository, transaction);
+        service.execute(unit(ID, "CLIENT-A", 1, "Synthetic Client A"));
+        int writesSoFar = transaction.opened;
+
+        var reassigned = unit(
+                new BusinessUnitId(UUID.fromString("10000000-0000-0000-0000-000000000009")),
+                "CLIENT-A",
+                1,
+                "Synthetic Client A");
+        assertThrows(BusinessUnitConflictException.class, () -> service.execute(reassigned));
+        assertThrows(
+                BusinessUnitConflictException.class,
+                () -> service.execute(unit(ID, "CLIENT-A", 1, "Synthetic Client Renamed")));
+
+        assertEquals(writesSoFar, transaction.opened, "a rejected event must open no transaction");
+    }
+
+    @Test
+    void repeatsAnIdenticalVersionWithoutOpeningAWriteTransaction() {
+        var repository = new InMemoryBusinessUnits();
+        var transaction = new CountingTransaction();
+        var service = new BusinessUnitReferenceService(repository, transaction);
+        var stored = unit(ID, "CLIENT-A", 1, "Synthetic Client A");
+        service.execute(stored);
+        int writesSoFar = transaction.opened;
+
+        assertEquals(stored, service.execute(stored));
+        assertEquals(writesSoFar, transaction.opened, "an exact repeat must not write again");
+    }
+
+    @Test
     void rejectsStaleConflictingAndReassignedReferenceIdentity() {
         var repository = new InMemoryBusinessUnits();
         var service = new BusinessUnitReferenceService(repository, new DirectApplicationTransaction());
@@ -84,4 +122,18 @@ class BusinessUnitReferenceServiceTest {
             return businessUnit;
         }
     }
+
+    /** Counts how often a write transaction is opened, so a rejection cannot hide inside one. */
+    private static final class CountingTransaction
+            implements io.stewardmesh.masterdata.application.port.out.ApplicationTransaction {
+
+        private int opened;
+
+        @Override
+        public <T> T execute(java.util.function.Supplier<T> operation) {
+            opened++;
+            return operation.get();
+        }
+    }
+
 }

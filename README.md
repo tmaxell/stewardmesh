@@ -19,6 +19,102 @@ test-fixtures/       Synthetic workbooks and integration events
 scripts/             Small reproducible developer utilities
 ```
 
+## Architecture
+
+Dependencies point inward. The domain holds invariants and knows no framework; the application layer
+owns use cases and declares ports; adapters implement those ports; only the composition root wires
+them. An architecture test fails when an inward module reaches outward, and separately when a guarded
+package name matches no class, so the rule cannot pass vacuously.
+
+```mermaid
+flowchart LR
+    subgraph inbound[Inbound adapters]
+        rest["adapter-rest<br/>REST + OpenAPI"]
+        mcp["adapter-mcp<br/>Streamable HTTP tools"]
+        ingress["adapter-messaging<br/>SQS ingress"]
+    end
+    subgraph core[Core]
+        app["master-application<br/>use cases and ports"]
+        domain["master-domain<br/>aggregates and policies"]
+    end
+    subgraph outbound[Outbound adapters]
+        persistence["adapter-persistence<br/>JPA + JDBC + Flyway"]
+        xlsx["adapter-ingestion-xlsx<br/>bounded POI parsing"]
+        egress["adapter-messaging<br/>SQS egress"]
+    end
+    agent["steward-agent<br/>reference supervisor"]
+
+    agent -->|MCP only| mcp
+    rest --> app
+    mcp --> app
+    ingress --> app
+    app --> domain
+    app -.->|ports| persistence
+    app -.->|ports| xlsx
+    app -.->|ports| egress
+```
+
+The agent reaches master data only through MCP. It never receives database or broker credentials, and
+approval and execution scopes are absent from every phase allowlist it can hold.
+
+### Governed change
+
+A model may propose. It may not decide, and it may not apply. Each transition is a separate call with
+its own OAuth scope and its own authenticated principal, and each one binds the exact plan version and
+hash so a plan cannot be swapped between the decision and the effect.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent
+    participant MCP as MCP boundary
+    participant App as Application
+    participant DB as PostgreSQL
+    participant Broker as SQS
+
+    Agent->>MCP: create_onboarding_proposal (mdm.steward.propose)
+    MCP->>App: seal plan with server-owned identity and time
+    App->>DB: store plan, steps and evidence
+    Agent->>MCP: simulate_onboarding_plan (mdm.supplier.read)
+    MCP-->>Agent: EXECUTABLE or bounded precondition codes
+    Note over Agent,MCP: the same token cannot approve
+    participant Steward
+    Steward->>MCP: approve_action_plan (mdm.steward.approve)
+    App->>DB: immutable decision, plan advances to APPROVED
+    participant Executor
+    Executor->>MCP: execute_approved_plan (mdm.plan.execute)
+    App->>App: re-simulate the exact version and hash
+    App->>DB: effects, receipt, audit, outbox, EXECUTED
+    Note over App,DB: one transaction, no broker call inside it
+    Broker-->>Broker: relay publishes the outbox event at least once
+```
+
+### Integration lineage
+
+StewardMesh integrates with the reference-data distribution contour rather than replacing it. The
+canonical envelope separates where data came from, who produced it and which transport carried it, so
+an owned event returning through the distributor is suppressed instead of applied a second time.
+
+```mermaid
+flowchart LR
+    distributor[["NSI distribution contour"]]
+    inbox[("inbox_event")]
+    quarantine[("quarantine_event")]
+    master[["Master data"]]
+    outbox[("outbox_event")]
+
+    distributor -->|source events| inbox
+    inbox -->|"new and valid"| master
+    inbox -->|"originSystem = STEWARDMESH"| suppressed["own event suppressed"]
+    inbox -->|"conflicting or malformed"| quarantine
+    master -->|"one event per effect"| outbox
+    outbox -->|"claimed with SKIP LOCKED"| distributor
+```
+
+Delivery is explicitly at least once. Identity is a stable business event id plus a payload
+fingerprint, never a broker message id, so a redelivery is recognised as a replay rather than a new
+fact.
+
 ## Product boundary
 
 The MVP masters supplier parties and supplier sites and assigns them to procurement/client business units. It does not master products, customers, employees, contracts, payments, or the complete internal organization hierarchy.
@@ -108,6 +204,12 @@ The Phase 3 acceptance proof synchronizes a versioned synthetic business unit fr
 ```
 
 Run `./scripts/verify-phase-3.sh` for the complete repository gate. All Phase 3 fixtures, identities, reference events and supplier values are synthetic.
+
+## Phase 4 reference-agent demo
+
+Start the stack with `./scripts/run-local.sh`, then run `./scripts/demo-local.sh` in another terminal. When `GROQ_API_KEY` is present in the environment or the ignored `.env`, the executable `steward-agent` attempts Groq strict structured output to choose one typed directive at a time. The supervisor still owns the allowlist, evidence requirements and tool-call limit; Groq never receives approval or execution authority. The agent profiles the workbook, checks party/site candidates, creates and simulates an immutable proposal, and reloads the sealed plan through authenticated MCP. If the provider or an agent tool is unavailable, the script reports the failure and uses the deterministic MCP proposal path; it still verifies the sealed targets, approval boundary, idempotent execution and outbox. Separate steward and executor identities complete the governed lifecycle.
+
+The default model is `openai/gpt-oss-20b`. `GROQ_MODEL` and `GROQ_BASE_URL` are deployment settings, while the API key must remain only in the ignored `.env` or process environment. Without a key, the script uses its deterministic MCP fallback so the approval, idempotency, audit and outbox demonstration remains reproducible offline.
 
 ## Concurrency smoke
 

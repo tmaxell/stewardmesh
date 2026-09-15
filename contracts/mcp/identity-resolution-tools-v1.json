@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:stewardmesh:mcp:identity-resolution-tools:v1",
+  "contractVersion": "1.0.0",
+  "transport": {
+    "protocol": "STREAMABLE_HTTP",
+    "endpoint": "/mcp",
+    "authentication": "OAuth2 bearer token on every request"
+  },
+  "tools": [
+    {
+      "name": "get_import_status",
+      "class": "READ",
+      "requiredScope": "mdm.supplier.read",
+      "sideEffect": "NONE",
+      "inputSchema": {
+        "type": "object",
+        "required": ["importId"],
+        "properties": {"importId": {"type": "string", "format": "uuid"}},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "find_party_candidates",
+      "class": "READ",
+      "requiredScope": "mdm.supplier.read",
+      "sideEffect": "NONE",
+      "inputSchema": {"$ref": "#/$defs/sourceEvaluation"}
+    },
+    {
+      "name": "find_site_candidates",
+      "class": "READ",
+      "requiredScope": "mdm.supplier.read",
+      "sideEffect": "NONE",
+      "inputSchema": {"$ref": "#/$defs/sourceEvaluation"}
+    },
+    {
+      "name": "explain_match",
+      "class": "READ",
+      "requiredScope": "mdm.supplier.read",
+      "sideEffect": "NONE",
+      "inputSchema": {
+        "type": "object",
+        "required": ["sourceSystem", "sourceRecordId", "sourceVersion", "rulesetId", "entityType", "candidateId"],
+        "properties": {
+          "sourceSystem": {"type": "string", "minLength": 1, "maxLength": 64},
+          "sourceRecordId": {"type": "string", "minLength": 1, "maxLength": 128},
+          "sourceVersion": {"type": "integer", "minimum": 1},
+          "rulesetId": {"type": "string", "minLength": 1, "maxLength": 128},
+          "entityType": {"enum": ["PARTY", "SITE"]},
+          "candidateId": {"type": "string", "format": "uuid"}
+        },
+        "additionalProperties": false
+      }
+    }
+  ],
+  "$defs": {
+    "sourceEvaluation": {
+      "type": "object",
+      "required": ["sourceSystem", "sourceRecordId", "sourceVersion", "rulesetId"],
+      "properties": {
+        "sourceSystem": {"type": "string", "minLength": 1, "maxLength": 64},
+        "sourceRecordId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "sourceVersion": {"type": "integer", "minimum": 1},
+        "rulesetId": {"type": "string", "minLength": 1, "maxLength": 128}
+      },
+      "additionalProperties": false
+    }
+  }
+}

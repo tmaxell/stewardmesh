@@ -16,6 +16,20 @@ import org.junit.jupiter.api.Test;
 
 class ReferenceStewardAgentTest {
 
+    @Test
+    void observationsRetainNullableJsonFieldsAsData() {
+        var result = new java.util.LinkedHashMap<String, Object>();
+        result.put("status", "MATCHED");
+        result.put("failureCode", null);
+
+        var observation = new AgentObservation(
+                1, AgentPhase.IDENTIFY, "get_import_status", "IMPORT_STATUS_CHECKED", result);
+
+        assertTrue(observation.result().containsKey("failureCode"));
+        assertEquals(null, observation.result().get("failureCode"));
+        assertThrows(UnsupportedOperationException.class, () -> observation.result().put("status", "FAILED"));
+    }
+
     private static final AgentGoal GOAL = new AgentGoal(
             UUID.fromString("018f3f70-79b2-7d6a-bf40-3d52dc2bb10a"),
             "Onboard the synthetic supplier and prepare a governed proposal");
