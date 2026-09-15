@@ -142,12 +142,36 @@ UPLOAD="$(curl --fail-with-body --silent --show-error \
 IMPORT_ID="$(printf '%s' "${UPLOAD}" | field "['importId']")"
 detail "import ${IMPORT_ID} reached $(printf '%s' "${UPLOAD}" | field "['status']")"
 
-step "4. The demo discovers the mastered site through the public API"
-SITE="$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer ${IMPORTER}" \
-  "${SERVICE}/api/v1/identity-resolution/sources/DEMO_${RUN}/SYN-0002/versions/1/candidates?rulesetId=supplier-identity-v1&entityType=SITE" \
-  | field "['candidates'][0]['candidateId']")"
-SITE_VERSION="$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer ${IMPORTER}" \
-  "${SERVICE}/api/v1/golden-records/SITE/${SITE}" | field "['version']")"
+step "4. The demo verifies the mastered site through the public API"
+# Candidate pages contain possible matches, not the mastered target. Resolve the active association
+# by source identity, then ensure the golden site actually contains that association.
+SITE_LINK=""
+for attempt in $(seq 1 20); do
+  SITE_LINK="$(curl --silent --show-error -H "Authorization: Bearer ${IMPORTER}" \
+    "${SERVICE}/api/v1/identity-resolution/sources/DEMO_${RUN}/SYN-0002/versions/1/master-link")"
+  if printf '%s' "${SITE_LINK}" | python3 -c '
+import json,sys
+link=json.load(sys.stdin)
+assert link.get("source") == {
+    "originSystem": sys.argv[1], "sourceRecordId": "SYN-0002", "sourceVersion": 1
+}
+assert link.get("siteId") and link.get("associationId")
+' "DEMO_${RUN}" 2>/dev/null; then
+    break
+  fi
+  sleep 2
+done
+SITE="$(printf '%s' "${SITE_LINK}" | field "['siteId']")"
+ASSOCIATION="$(printf '%s' "${SITE_LINK}" | field "['associationId']")"
+SITE_RECORD="$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer ${IMPORTER}" \
+  "${SERVICE}/api/v1/golden-records/SITE/${SITE}")"
+printf '%s' "${SITE_RECORD}" | python3 -c '
+import json,sys
+record=json.load(sys.stdin)
+assert record["entityType"] == "SITE" and record["entityId"] == sys.argv[1]
+assert sys.argv[2] in record["sourceAssociationIds"]
+' "${SITE}" "${ASSOCIATION}"
+SITE_VERSION="$(printf '%s' "${SITE_RECORD}" | field "['version']")"
 detail "site ${SITE} is at golden version ${SITE_VERSION}"
 
 ASSIGNMENT="$(python3 -c 'import uuid;print(uuid.uuid4())')"
@@ -163,6 +187,12 @@ print(json.dumps({"importId": import_id, "steps": [{
     "validFrom": "2026-01-01", "reasonCode": "AUTHORIZE_CLIENT_BU",
     "evidence": [{"type": "BUSINESS_UNIT_REFERENCE", "reference": sys.argv[6], "version": 1}]}]}))
 PYTHON
+fallback_proposal() {
+  PROPOSAL="$(mcp "${AGENT}" create_onboarding_proposal < "${WORKDIR}/proposal.json")"
+  PLAN="$(printf '%s' "${PROPOSAL}" | field "['planId']")"
+  PLAN_VERSION="$(printf '%s' "${PROPOSAL}" | field "['version']")"
+  HASH="$(printf '%s' "${PROPOSAL}" | field "['hash']")"
+}
 if [[ -n "${GROQ_API_KEY:-}" ]]; then
   step "5. The Groq-backed reference supervisor investigates and proposes"
   OBJECTIVE="Inspect source DEMO_${RUN}/SYN-0002/v1 with ruleset supplier-identity-v1. Propose ASSIGN_SUPPLIER_SITE assignmentId=${ASSIGNMENT} siteId=${SITE} expectedSiteVersion=${SITE_VERSION} clientBusinessUnitId=${BUSINESS_UNIT} purposes=PURCHASING validFrom=2026-01-01 reasonCode=AUTHORIZE_CLIENT_BU evidence=BUSINESS_UNIT_REFERENCE:${BUSINESS_UNIT_CODE}:v1."
@@ -173,7 +203,7 @@ if [[ -n "${GROQ_API_KEY:-}" ]]; then
   export STEWARDMESH_AGENT_TOKEN="${AGENT}"
   export STEWARDMESH_IMPORT_ID="${IMPORT_ID}"
   export STEWARDMESH_AGENT_OBJECTIVE="${OBJECTIVE}"
-  AGENT_RESULT="$(docker run --rm --network stewardmesh_default \
+  if AGENT_RESULT="$(docker run --rm --network stewardmesh_default \
     -e GROQ_API_KEY \
     -e "GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-20b}" \
     -e "GROQ_BASE_URL=${GROQ_BASE_URL:-https://api.groq.com/openai/v1/}" \
@@ -183,19 +213,24 @@ if [[ -n "${GROQ_API_KEY:-}" ]]; then
     -e STEWARDMESH_MCP_URL=http://stewardmesh-master-service:8080/mcp \
     -v "${REPOSITORY_ROOT}:/workspace:ro" -w /workspace \
     maven:3.9.16-eclipse-temurin-25 \
-    java -jar steward-agent/target/steward-agent-0.1.0-SNAPSHOT.jar)"
-  PLAN="$(printf '%s' "${AGENT_RESULT}" | field "['planId']")"
-  PLAN_VERSION="$(printf '%s' "${AGENT_RESULT}" | field "['planVersion']")"
-  HASH="$(printf '%s' "${AGENT_RESULT}" | field "['planHash']")"
-  detail "reference supervisor used $(printf '%s' "${AGENT_RESULT}" | field "['model']")"
-  detail "tool calls $(printf '%s' "${AGENT_RESULT}" | field "['toolCalls']")"
+    java -jar steward-agent/target/steward-agent-0.1.0-SNAPSHOT.jar \
+    2> "${WORKDIR}/agent-error.log")"; then
+    PLAN="$(printf '%s' "${AGENT_RESULT}" | field "['planId']")"
+    PLAN_VERSION="$(printf '%s' "${AGENT_RESULT}" | field "['planVersion']")"
+    HASH="$(printf '%s' "${AGENT_RESULT}" | field "['planHash']")"
+    detail "reference supervisor used $(printf '%s' "${AGENT_RESULT}" | field "['model']")"
+    detail "tool calls $(printf '%s' "${AGENT_RESULT}" | field "['toolCalls']")"
+  else
+    ERROR_SUMMARY="$(sed -n 's/.*Caused by: .*Exception: \(.*\)/\1/p' \
+      "${WORKDIR}/agent-error.log" | head -n 1)"
+    detail "reference supervisor stopped: ${ERROR_SUMMARY:-provider or tool unavailable}"
+    detail "no plan was approved or executed by the agent; continuing with deterministic MCP"
+    fallback_proposal
+  fi
 else
   step "5. Deterministic MCP fallback proposes the governed change"
   detail "GROQ_API_KEY is not set; exporting it enables the real reference-supervisor path"
-  PROPOSAL="$(mcp "${AGENT}" create_onboarding_proposal < "${WORKDIR}/proposal.json")"
-  PLAN="$(printf '%s' "${PROPOSAL}" | field "['planId']")"
-  PLAN_VERSION="$(printf '%s' "${PROPOSAL}" | field "['version']")"
-  HASH="$(printf '%s' "${PROPOSAL}" | field "['hash']")"
+  fallback_proposal
 fi
 detail "plan ${PLAN} sealed at version ${PLAN_VERSION}"
 printf '{"planId":"%s"}' "${PLAN}" > "${WORKDIR}/plan-read.json"
