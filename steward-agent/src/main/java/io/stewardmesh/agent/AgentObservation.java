@@ -1,5 +1,7 @@
 package io.stewardmesh.agent;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -18,6 +20,7 @@ public record AgentObservation(
         Objects.requireNonNull(phase, "phase must not be null");
         Objects.requireNonNull(toolName, "toolName must not be null");
         Objects.requireNonNull(decisionCode, "decisionCode must not be null");
-        result = Map.copyOf(Objects.requireNonNull(result, "result must not be null"));
+        result = Collections.unmodifiableMap(new LinkedHashMap<>(
+                Objects.requireNonNull(result, "result must not be null")));
     }
 }

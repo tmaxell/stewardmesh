@@ -2,6 +2,7 @@ package io.stewardmesh.agent;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -60,7 +61,7 @@ class StreamableHttpMcpCapabilityClientTest {
                             200,
                             "data: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{"
                                     + "\"isError\":false,\"content\":[{\"type\":\"text\","
-                                    + "\"text\":\"{\\\"dataRows\\\":3,\\\"status\\\":\\\"PROFILED\\\"}\"}]}}\n\n",
+                                    + "\"text\":\"{\\\"dataRows\\\":3,\\\"status\\\":\\\"PROFILED\\\",\\\"failureCode\\\":null}\"}]}}\n\n",
                             Map.of());
                 }
                 default -> throw new AssertionError("unexpected request");
@@ -75,6 +76,8 @@ class StreamableHttpMcpCapabilityClientTest {
         assertTrue(authorizations.stream().allMatch("Bearer synthetic-token"::equals));
         assertEquals(3, result.get("dataRows"));
         assertEquals("PROFILED", result.get("status"));
+        assertTrue(result.containsKey("failureCode"));
+        assertNull(result.get("failureCode"));
         assertFalse(result.containsKey("rowValues"));
     }
 
